@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
 import uuid
 from datetime import datetime
+import asyncio
 
 from models.schemas import (
     QuoteSubmission, RunRecord, RunStatusResponse, 
@@ -15,6 +17,18 @@ from workflows.agentic_graph import run_agentic_underwriting_workflow
 from storage.database import db
 from config import settings
 from metrics_dashboard import create_dashboard_routes
+from security import (
+    init_security, init_redis, get_current_user, 
+    security_headers_middleware, InputValidator
+)
+from performance import (
+    init_performance, init_cache, cache_manager, 
+    performance_monitor, perf_monitor
+)
+from monitoring import (
+    setup_monitoring, monitoring_middleware, 
+    health_endpoint, metrics_endpoint, logger, monitoring_loop
+)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -22,6 +36,12 @@ app = FastAPI(
     description=settings.description,
     version=settings.version
 )
+
+# Add security headers middleware
+app.middleware("http")(security_headers_middleware)
+
+# Add monitoring middleware
+app.middleware("http")(monitoring_middleware)
 
 # Add CORS middleware
 app.add_middleware(
@@ -37,6 +57,42 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Add dashboard routes
 create_dashboard_routes(app)
+
+# Add monitoring endpoints
+app.add_route("/metrics", metrics_endpoint, methods=["GET"])
+app.add_route("/health", health_endpoint, methods=["GET"])
+
+# Initialize production components
+@app.on_event("startup")
+async def startup_event():
+    """Initialize production components on startup."""
+    logger.info("Starting Agentic Quote-to-Underwrite application")
+    
+    # Initialize security
+    init_security(settings.secret_key, settings.jwt_secret_key)
+    
+    # Initialize Redis for caching and rate limiting
+    if hasattr(settings, 'redis_url'):
+        init_redis(settings.redis_url)
+        init_cache(settings.redis_url)
+    
+    # Initialize performance optimization
+    init_performance("storage/underwriting.db", getattr(settings, 'redis_url', None))
+    
+    # Setup monitoring and alerting
+    setup_monitoring()
+    
+    # Start background monitoring
+    asyncio.create_task(monitoring_loop())
+    
+    logger.info("Application startup completed")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("Shutting down application")
+    # Add cleanup logic here
+    logger.info("Application shutdown completed")
 
 
 def store_run_record(workflow_state: WorkflowState, status: str = "completed", error_message: Optional[str] = None):
@@ -91,45 +147,64 @@ def store_run_record(workflow_state: WorkflowState, status: str = "completed", e
     return run_id
 
 
-@app.post("/quote/run", response_model=QuoteRunResponse)
-async def run_quote_processing(request: QuoteRunRequest):
+@app.post("/quote/run")
+async def run_quote_processing(
+    request: QuoteRunRequest,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user)
+):
     """
-    Process a quote submission through the underwriting workflow.
+    Process a quote through the underwriting workflow.
     """
+    perf_monitor.start_timer("quote_processing")
+    
     try:
-        # Choose workflow based on agentic flag
+        # Input validation
+        validator = InputValidator()
+        
+        # Validate submission data
+        if not validator.validate_email(request.submission.applicant_email):
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        
+        if not validator.validate_address(request.submission.address):
+            raise HTTPException(status_code=400, detail="Invalid address format")
+        
+        if not validator.validate_coverage_amount(request.submission.coverage_amount):
+            raise HTTPException(status_code=400, detail="Invalid coverage amount")
+        
+        if request.submission.construction_year:
+            if not validator.validate_year(request.submission.construction_year):
+                raise HTTPException(status_code=400, detail="Invalid construction year")
+        
+        # Sanitize string inputs
+        request.submission.applicant_name = validator.sanitize_string(request.submission.applicant_name)
+        request.submission.address = validator.sanitize_string(request.submission.address)
+        
+        logger.info("Quote processing started", 
+                   quote_id=request.quote_id,
+                   use_agentic=request.use_agentic,
+                   user_id=current_user.get("user_id") if current_user else None)
+        
+        # Run the appropriate workflow
         if request.use_agentic:
-            workflow_state = run_agentic_underwriting_workflow(
-                request.submission.model_dump(), 
+            workflow_state = await run_agentic_underwriting_workflow(
+                request.submission, 
                 request.additional_answers
             )
         else:
-            workflow_state = run_underwriting_workflow(request.submission.model_dump())
+            workflow_state = await run_underwriting_workflow(request.submission)
         
         # Store the run record
-        run_id = store_run_record(workflow_state)
+        store_run_record(workflow_state)
         
         # Prepare response
         decision_dict = workflow_state.decision.model_dump() if workflow_state.decision else None
         premium_dict = workflow_state.premium_breakdown.model_dump() if workflow_state.premium_breakdown else None
-        citations = workflow_state.uw_assessment.citations if workflow_state.uw_assessment else []
-        required_questions = [q.model_dump() for q in workflow_state.decision.required_questions] if workflow_state.decision and workflow_state.decision.required_questions else []
+        citations = [citation.model_dump() for citation in workflow_state.retrieved_chunks]
+        required_questions = workflow_state.missing_info
+        message = "Quote processing completed successfully"
         
-        # Determine message based on decision
-        if workflow_state.decision:
-            if workflow_state.decision.decision == "ACCEPT":
-                message = "Quote accepted for policy issuance"
-            elif workflow_state.decision.decision == "REFER":
-                message = "Quote referred for manual review"
-            elif workflow_state.decision.decision == "DECLINE":
-                message = "Quote declined"
-            else:
-                message = "Processing complete"
-        else:
-            message = "Processing complete"
-        
-        return QuoteRunResponse(
-            run_id=run_id,
+        response = QuoteRunResponse(
+            run_id=workflow_state.run_id,
             status="completed",
             decision=decision_dict,
             premium=premium_dict,
@@ -137,6 +212,15 @@ async def run_quote_processing(request: QuoteRunRequest):
             required_questions=required_questions,
             message=message
         )
+        
+        perf_monitor.end_timer("quote_processing")
+        
+        logger.info("Quote processing completed", 
+                   run_id=workflow_state.run_id,
+                   decision=decision_dict.get("decision") if decision_dict else None,
+                   duration=perf_monitor.get_stats("quote_processing").get("avg", 0))
+        
+        return response
         
     except Exception as e:
         # Create a failed run record
