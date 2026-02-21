@@ -6,6 +6,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from typing import Optional, Dict, Any
 import uuid
+import asyncio
+import logging
 from datetime import datetime, timedelta
 import json
 
@@ -13,6 +15,11 @@ from config import settings
 
 # In-memory storage for human review data
 human_review_store = {}
+
+# Import message queue (Redis-based)
+from app.redis_queue import redis_message_queue, MessagePriority, process_quote_async
+
+logger = logging.getLogger(__name__)
 
 def create_complete_app() -> FastAPI:
     """
@@ -31,11 +38,29 @@ def create_complete_app() -> FastAPI:
     
     @app.get("/health")
     async def health():
-        return {
-            "status": "healthy", 
-            "message": "Complete app working",
-            "timestamp": datetime.now().isoformat()
-        }
+        try:
+            redis_health = await redis_message_queue.health_check()
+            return {
+                "status": redis_health["status"],
+                "message": "Complete app working with Redis queue",
+                "timestamp": datetime.now().isoformat(),
+                "redis": {
+                    "connected": redis_health["redis_connected"],
+                    "queue_stats": redis_health.get("queue_stats", {}),
+                    "using_mock": redis_health.get("using_mock", False)
+                }
+            }
+        except Exception as e:
+            return {
+                "status": "healthy",
+                "message": "Complete app working (queue initialization in progress)",
+                "timestamp": datetime.now().isoformat(),
+                "redis": {
+                    "connected": False,
+                    "queue_stats": {},
+                    "error": str(e)
+                }
+            }
     
     @app.get("/")
     async def root():
@@ -46,6 +71,9 @@ def create_complete_app() -> FastAPI:
             "endpoints": {
                 "health": "/health",
                 "quote": "/quote/run",
+                "quote_async": "/quote/submit",
+                "queue_status": "/queue/{message_id}",
+                "queue_stats": "/queue/stats",
                 "runs": "/runs",
                 "metrics": "/metrics",
                 "human_review": "/quote/{run_id}/approve",
@@ -298,5 +326,128 @@ def create_complete_app() -> FastAPI:
                 "submission_timestamp": datetime.now().isoformat(),
                 "review_deadline": (datetime.now() + timedelta(hours=48)).isoformat()
             }
+    
+    @app.post("/quote/submit")
+    async def submit_quote_async(request: Dict[str, Any]):
+        """
+        Submit a quote for asynchronous processing via message queue.
+        """
+        try:
+            # Validate required fields
+            submission = request.get("submission", {})
+            if not submission.get("applicant_name"):
+                raise HTTPException(status_code=400, detail="Applicant name is required")
+            
+            if not submission.get("address"):
+                raise HTTPException(status_code=400, detail="Address is required")
+            
+            if not submission.get("coverage_amount"):
+                raise HTTPException(status_code=400, detail="Coverage amount is required")
+            
+            # Determine priority based on coverage amount
+            coverage = submission.get("coverage_amount", 0)
+            if coverage > 500000:
+                priority = MessagePriority.HIGH
+            elif coverage < 100000:
+                priority = MessagePriority.HIGH
+            else:
+                priority = MessagePriority.NORMAL
+            
+            # Add to Redis queue
+            message_id = await redis_message_queue.enqueue(request, priority)
+            
+            # Start background processing
+            asyncio.create_task(process_queue_message(message_id))
+            
+            return {
+                "message_id": message_id,
+                "status": "queued",
+                "priority": priority.name,
+                "estimated_processing_time": "2-5 minutes",
+                "queue_position": "Processing started"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Queue submission failed: {str(e)}"
+            )
+    
+    @app.get("/queue/{message_id}")
+    async def get_queue_status(message_id: str):
+        """
+        Get the status of a queued message.
+        """
+        try:
+            status = await redis_message_queue.get_status(message_id)
+            if not status:
+                raise HTTPException(status_code=404, detail="Message not found")
+            
+            return status
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Status check failed: {str(e)}"
+            )
+    
+    @app.get("/queue/stats")
+    async def get_queue_statistics():
+        """
+        Get queue statistics for monitoring.
+        """
+        try:
+            stats = await redis_message_queue.get_queue_stats()
+            return stats
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Stats retrieval failed: {str(e)}"
+            )
+    
+    async def process_queue_message(message_id: str):
+        """
+        Background task to process messages from the queue.
+        """
+        try:
+            # Get the message from Redis queue
+            message = await redis_message_queue.dequeue()
+            if not message or message.id != message_id:
+                logger.error(f"Message {message_id} not found in queue")
+                return
+            
+            # Process the quote
+            result = await process_quote_async(message.id, message.payload)
+            
+            # Mark as completed
+            await redis_message_queue.complete(message.id, result)
+            
+        except Exception as e:
+            # Mark as failed (will retry if retries available)
+            await redis_message_queue.fail(message_id, str(e))
+    
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize Redis connection on startup."""
+        try:
+            await redis_message_queue.initialize()
+            logger.info("Redis message queue initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis queue: {e}")
+            # Continue without Redis - will fallback to in-memory if needed
+    
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Close Redis connections on shutdown."""
+        try:
+            await redis_message_queue.close()
+            logger.info("Redis connections closed")
+        except Exception as e:
+            logger.error(f"Error closing Redis connections: {e}")
     
     return app

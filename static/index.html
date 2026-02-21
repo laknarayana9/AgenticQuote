@@ -100,6 +100,10 @@
                         <input type="checkbox" id="use_agentic" class="mr-2">
                         <span class="text-sm text-gray-700">Enable Agentic Behavior</span>
                     </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="use_queue" class="mr-2" checked>
+                        <span class="text-sm text-gray-700">Use Async Queue</span>
+                    </label>
                 </div>
 
                 <button type="submit" 
@@ -114,6 +118,17 @@
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p class="text-blue-800">Processing your quote...</p>
             <p class="text-sm text-blue-600 mt-2">Running underwriting workflow with AI analysis</p>
+        </div>
+
+        <!-- Queue Status -->
+        <div id="queueStatus" class="loading bg-purple-50 border border-purple-200 rounded-lg p-6 text-center" style="display: none;">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p class="text-purple-800">Quote submitted to queue...</p>
+            <p class="text-sm text-purple-600 mt-2">Processing asynchronously</p>
+            <div id="queueDetails" class="mt-4 text-sm text-purple-700"></div>
+            <button onclick="checkQueueStatus()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                Check Status
+            </button>
         </div>
 
         <!-- Results -->
@@ -199,8 +214,62 @@
                 additional_answers: {}
             };
 
+            const useQueue = document.getElementById('use_queue').checked;
+
+            if (useQueue) {
+                // Async processing with queue
+                await submitToQueue(formData);
+            } else {
+                // Sync processing
+                await submitDirectly(formData);
+            }
+        });
+
+        async function submitToQueue(formData) {
+            // Show queue status
+            document.getElementById('queueStatus').style.display = 'block';
+            document.getElementById('loading').classList.remove('show');
+            document.getElementById('result').classList.remove('show');
+
+            try {
+                const response = await fetch(`${API_BASE}/quote/submit`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Store message ID for status checking
+                    window.currentMessageId = result.message_id;
+                    
+                    // Update queue details
+                    document.getElementById('queueDetails').innerHTML = `
+                        <div><strong>Message ID:</strong> ${result.message_id}</div>
+                        <div><strong>Status:</strong> ${result.status}</div>
+                        <div><strong>Priority:</strong> ${result.priority}</div>
+                        <div><strong>Estimated Time:</strong> ${result.estimated_processing_time}</div>
+                    `;
+                    
+                    // Start polling for status
+                    startQueuePolling();
+                } else {
+                    alert(`Error: ${result.detail}`);
+                    document.getElementById('queueStatus').style.display = 'none';
+                }
+            } catch (error) {
+                alert(`Network error: ${error.message}`);
+                document.getElementById('queueStatus').style.display = 'none';
+            }
+        }
+
+        async function submitDirectly(formData) {
             // Show loading
             document.getElementById('loading').classList.add('show');
+            document.getElementById('queueStatus').classList.remove('show');
             document.getElementById('result').classList.remove('show');
 
             try {
@@ -224,7 +293,72 @@
             } finally {
                 document.getElementById('loading').classList.remove('show');
             }
-        });
+        }
+
+        let queuePollingInterval = null;
+
+        function startQueuePolling() {
+            if (queuePollingInterval) {
+                clearInterval(queuePollingInterval);
+            }
+            
+            queuePollingInterval = setInterval(async () => {
+                await checkQueueStatus(false); // Silent check
+            }, 3000); // Check every 3 seconds
+        }
+
+        function stopQueuePolling() {
+            if (queuePollingInterval) {
+                clearInterval(queuePollingInterval);
+                queuePollingInterval = null;
+            }
+        }
+
+        async function checkQueueStatus(showAlert = true) {
+            if (!window.currentMessageId) {
+                if (showAlert) alert('No message ID available. Please submit a quote first.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/queue/${window.currentMessageId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Update queue details
+                    const queueDetails = document.getElementById('queueDetails');
+                    queueDetails.innerHTML = `
+                        <div><strong>Message ID:</strong> ${data.id}</div>
+                        <div><strong>Status:</strong> <span class="px-2 py-1 text-xs rounded ${
+                            data.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            data.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                            data.status === 'failed' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                        }">${data.status}</span></div>
+                        <div><strong>Priority:</strong> ${data.priority}</div>
+                        <div><strong>Created:</strong> ${new Date(data.created_at).toLocaleString()}</div>
+                        ${data.started_at ? `<div><strong>Started:</strong> ${new Date(data.started_at).toLocaleString()}</div>` : ''}
+                        ${data.completed_at ? `<div><strong>Completed:</strong> ${new Date(data.completed_at).toLocaleString()}</div>` : ''}
+                        ${data.error_message ? `<div><strong>Error:</strong> ${data.error_message}</div>` : ''}
+                        ${data.retry_count > 0 ? `<div><strong>Retries:</strong> ${data.retry_count}/${data.max_retries}</div>` : ''}
+                    `;
+                    
+                    // If completed, display results
+                    if (data.status === 'completed' && data.payload) {
+                        stopQueuePolling();
+                        document.getElementById('queueStatus').style.display = 'none';
+                        displayResults(data.payload);
+                    } else if (data.status === 'failed') {
+                        stopQueuePolling();
+                        if (showAlert) alert(`Processing failed: ${data.error_message}`);
+                    }
+                } else {
+                    if (showAlert) alert(`Error checking status: ${data.detail}`);
+                }
+            } catch (error) {
+                if (showAlert) alert(`Error checking queue status: ${error.message}`);
+            }
+        }
 
         function displayResults(result) {
             // Decision
