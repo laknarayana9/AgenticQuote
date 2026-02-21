@@ -256,8 +256,8 @@ Try these test cases in the UI:
 
 ## 📞 Support
 
-This is a 2-day proof-of-concept demonstrating:
-- ✅ Principal-style architecture thinking
+This is a rapid engineering demonstrating:
+- ✅ Agentic Architecture Thinking
 - ✅ Agentic workflow orchestration
 - ✅ RAG-powered decision support
 - ✅ Audit-ready underwriting system
