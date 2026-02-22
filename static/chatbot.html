@@ -352,11 +352,52 @@
                 }
             }
             
-            // Check if we have enough info
-            if (collectedInfo.applicant_name && collectedInfo.address && collectedInfo.coverage_amount) {
+            if (message.includes('roof') || message.includes('tile')) {
+                const roof = extractRoofType(message);
+                if (roof) {
+                    collectedInfo.roof_type = roof;
+                    document.getElementById('roof_type').value = roof;
+                    addMessage(`Roof type updated: ${roof}`, 'bot');
+                }
+            }
+            
+            if (message.includes('foundation') || message.includes('concrete')) {
+                const foundation = extractFoundationType(message);
+                if (foundation) {
+                    collectedInfo.foundation_type = foundation;
+                    document.getElementById('foundation_type').value = foundation;
+                    addMessage(`Foundation type updated: ${foundation}`, 'bot');
+                }
+            }
+            
+            if (message.includes('year') || message.includes('construction')) {
+                const year = extractNumber(message);
+                if (year) {
+                    collectedInfo.construction_year = year;
+                    document.getElementById('construction_year').value = year;
+                    addMessage(`Construction year updated: ${year}`, 'bot');
+                }
+            }
+            
+            if (message.includes('sqft') || message.includes('square') || message.includes('footage')) {
+                const sqft = extractNumber(message);
+                if (sqft) {
+                    collectedInfo.square_footage = sqft;
+                    document.getElementById('square_footage').value = sqft;
+                    addMessage(`Square footage updated: ${sqft}`, 'bot');
+                }
+            }
+            
+            // Check if we have enough info for next question
+            if (collectedInfo.applicant_name && !collectedInfo.address) {
+                await askForAddress();
+            } else if (collectedInfo.address && !collectedInfo.coverage_amount) {
+                await askForCoverage();
+            } else if (collectedInfo.applicant_name && collectedInfo.address && collectedInfo.coverage_amount) {
                 addMessage("Perfect! I have all the basic information. Would you like me to submit this quote for you, or do you need to add more details?", 'bot');
                 conversationState = 'reviewing';
             } else {
+                // Ask for the specific missing piece
                 await askForMissingInfo();
             }
         }
@@ -365,50 +406,68 @@
             if (message.includes('submit') || message.includes('send') || message.includes('yes')) {
                 await submitQuote();
             } else if (message.includes('add') || message.includes('more') || message.includes('details')) {
-                await askForAdditionalInfo();
+                if (!collectedInfo.roof_type) {
+                    await askForRoofType();
+                } else if (!collectedInfo.square_footage) {
+                    await askForSquareFootage();
+                } else if (!collectedInfo.foundation_type) {
+                    await askForFoundationType();
+                } else if (!collectedInfo.construction_year) {
+                    await askForConstructionYear();
+                } else {
+                    addMessage("You've provided all additional details! Ready to submit?", 'bot');
+                }
             } else if (message.includes('change') || message.includes('modify')) {
-                addMessage("What would you like to change? You can tell me 'name', 'address', 'coverage', etc.", 'bot');
+                addMessage("What would you like to change? You can tell me 'name', 'address', 'coverage', 'roof', 'foundation', 'year', 'sqft'", 'bot');
             }
         }
 
         async function askForRequiredInfo() {
-            addMessage("I'll need some basic information to get you a quote:", 'bot');
+            addMessage("I'll need some basic information to get you a quote. Let's go step by step:", 'bot');
             setTimeout(() => {
                 addMessage("1. What's your full name?", 'bot');
             }, 500);
-            setTimeout(() => {
-                addMessage("2. What's the property address?", 'bot');
-            }, 1000);
-            setTimeout(() => {
-                addMessage("3. How much coverage do you need? (e.g., 'coverage $500,000')", 'bot');
-            }, 1500);
+        }
+
+        async function askForAddress() {
+            addMessage("2. What's the property address?", 'bot');
+        }
+
+        async function askForCoverage() {
+            addMessage("3. How much coverage do you need? (e.g., 'coverage $500,000')", 'bot');
         }
 
         async function askForMissingInfo() {
-            const missing = [];
-            if (!collectedInfo.applicant_name) missing.push("name");
-            if (!collectedInfo.address) missing.push("address");
-            if (!collectedInfo.coverage_amount) missing.push("coverage amount");
-            
-            if (missing.length > 0) {
-                addMessage(`I still need: ${missing.join(', ')}. You can tell me like: "name: John Doe"`, 'bot');
+            if (!collectedInfo.applicant_name) {
+                addMessage("I still need your name. You can tell me like: 'name: John Doe'", 'bot');
+            } else if (!collectedInfo.address) {
+                addMessage("I still need your address. You can tell me like: 'address: 123 Main St, Irvine, CA'", 'bot');
+            } else if (!collectedInfo.coverage_amount) {
+                addMessage("I still need your coverage amount. You can tell me like: 'coverage: $500,000'", 'bot');
             }
         }
 
         async function askForAdditionalInfo() {
-            addMessage("You can provide additional details like:", 'bot');
+            addMessage("You can provide additional details one by one:", 'bot');
             setTimeout(() => {
                 addMessage("• Construction year (e.g., 'year: 1985')", 'bot');
             }, 500);
-            setTimeout(() => {
-                addMessage("• Square footage (e.g., 'sqft: 2000')", 'bot');
-            }, 1000);
-            setTimeout(() => {
-                addMessage("• Roof type (e.g., 'roof: tile')", 'bot');
-            }, 1500);
-            setTimeout(() => {
-                addMessage("• Foundation type (e.g., 'foundation: concrete')", 'bot');
-            }, 2000);
+        }
+
+        async function askForRoofType() {
+            addMessage("• Roof type (e.g., 'roof: tile')", 'bot');
+        }
+
+        async function askForSquareFootage() {
+            addMessage("• Square footage (e.g., 'sqft: 2000')", 'bot');
+        }
+
+        async function askForFoundationType() {
+            addMessage("• Foundation type (e.g., 'foundation: concrete')", 'bot');
+        }
+
+        async function askForConstructionYear() {
+            addMessage("• Construction year (e.g., 'year: 1985')", 'bot');
         }
 
         function showHelpMessage() {
@@ -484,6 +543,16 @@
                 return parseInt(match[1].replace(',', ''));
             }
             return null;
+        }
+
+        function extractRoofType(message) {
+            const match = message.match(/roof[:\s]+(.+)/i);
+            return match ? match[1].trim() : null;
+        }
+
+        function extractFoundationType(message) {
+            const match = message.match(/foundation[:\s]+(.+)/i);
+            return match ? match[1].trim() : null;
         }
 
         // Quote submission
