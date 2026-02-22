@@ -312,6 +312,8 @@
                 addMessage("Great! Let's start your quote. I'll need some information about your property.", 'bot');
                 await askForRequiredInfo();
                 conversationState = 'collecting_info';
+            } else if (message.includes('status')) {
+                await checkQuoteStatus(message);
             } else if (message.includes('help')) {
                 showHelpMessage();
             } else if (message.includes('how') || message.includes('explain')) {
@@ -319,7 +321,7 @@
             } else if (message.includes('recent') || message.includes('history')) {
                 showRecentQuotes();
             } else {
-                addMessage("I can help you with insurance quotes! Try 'start quote', 'help', or 'how it works'.", 'bot');
+                addMessage("I can help you with insurance quotes! Try 'start quote', 'status <quote_id>', 'help', or 'how it works'.", 'bot');
             }
         }
 
@@ -476,7 +478,7 @@
                 addMessage("🏠 **Start Quote** - Begin a new insurance quote", 'bot');
             }, 300);
             setTimeout(() => {
-                addMessage("❓ **What Info Needed** - See what information I need", 'bot');
+                addMessage("📊 **Status Check** - Check quote status with 'status <quote_id>'", 'bot');
             }, 600);
             setTimeout(() => {
                 addMessage("📋 **Recent Quotes** - View your quote history", 'bot');
@@ -524,6 +526,111 @@
 
         function explainProcess() {
             showProcessExplanation();
+        }
+
+        // Status checking function
+        async function checkQuoteStatus(message) {
+            const match = message.match(/status[:\s]+([a-f0-9-]+)/i);
+            if (!match) {
+                addMessage("Please provide a quote ID like: 'status 17121fe8-a3b4-4c9d-8f6e9a1b2c'", 'bot');
+                return;
+            }
+
+            const quoteId = match[1];
+            addMessage(`🔍 Checking status for quote: ${quoteId}`, 'bot');
+
+            try {
+                // Try to get from local history first
+                const history = JSON.parse(localStorage.getItem('quoteHistory') || '[]');
+                const localQuote = history.find(q => q.run_id === quoteId || q.message_id === quoteId);
+                
+                if (localQuote) {
+                    displayQuoteStatus(localQuote, quoteId);
+                    return;
+                }
+
+                // If not in local history, try API
+                const response = await fetch(`${API_BASE}/runs/${quoteId}/audit`);
+                if (response.ok) {
+                    const auditData = await response.json();
+                    displayApiQuoteStatus(auditData, quoteId);
+                } else {
+                    // Try queue status
+                    const queueResponse = await fetch(`${API_BASE}/queue/${quoteId}`);
+                    if (queueResponse.ok) {
+                        const queueData = await queueResponse.json();
+                        displayQueueStatus(queueData, quoteId);
+                    } else {
+                        addMessage(`❌ Quote not found: ${quoteId}`, 'bot');
+                    }
+                }
+            } catch (error) {
+                addMessage(`❌ Error checking status: ${error.message}`, 'bot');
+            }
+        }
+
+        function displayQuoteStatus(quote, quoteId) {
+            const date = new Date(quote.timestamp).toLocaleDateString();
+            const decision = quote.result.decision?.decision || 'Processing';
+            const status = quote.result.status || 'Unknown';
+            
+            addMessage(`📊 **Quote Status Report**`, 'bot');
+            addMessage(`🆔 **ID:** ${quoteId}`, 'bot');
+            addMessage(`📅 **Date:** ${date}`, 'bot');
+            addMessage(`📍 **Address:** ${quote.submission.address}`, 'bot');
+            addMessage(`💰 **Coverage:** $${quote.submission.coverage_amount?.toLocaleString()}`, 'bot');
+            addMessage(`📋 **Status:** ${status}`, 'bot');
+            addMessage(`⚖️ **Decision:** ${decision}`, 'bot');
+            
+            if (quote.result.decision?.rationale) {
+                addMessage(`📝 **Rationale:** ${quote.result.decision.rationale}`, 'bot');
+            }
+            
+            if (quote.result.premium) {
+                addMessage(`💵 **Premium:** $${quote.result.premium.annual_premium?.toLocaleString()}/year ($${quote.result.premium.monthly_premium?.toLocaleString()}/month)`, 'bot');
+            }
+            
+            if (quote.result.requires_human_review) {
+                addMessage(`👥 **Human Review Required** - This case needs expert underwriter review`, 'bot');
+            }
+        }
+
+        function displayApiQuoteStatus(auditData, quoteId) {
+            addMessage(`📊 **Quote Status Report**`, 'bot');
+            addMessage(`🆔 **ID:** ${quoteId}`, 'bot');
+            addMessage(`📅 **Created:** ${new Date(auditData.run_record.created_at).toLocaleDateString()}`, 'bot');
+            addMessage(`📋 **Status:** ${auditData.run_record.status}`, 'bot');
+            
+            if (auditData.workflow_state) {
+                addMessage(`📍 **Address:** ${auditData.workflow_state.submission?.address}`, 'bot');
+                addMessage(`💰 **Coverage:** $${auditData.workflow_state.submission?.coverage_amount?.toLocaleString()}`, 'bot');
+                
+                if (auditData.workflow_state.decision) {
+                    addMessage(`⚖️ **Decision:** ${auditData.workflow_state.decision.decision}`, 'bot');
+                    if (auditData.workflow_state.decision.rationale) {
+                        addMessage(`📝 **Rationale:** ${auditData.workflow_state.decision.rationale}`, 'bot');
+                    }
+                }
+                
+                if (auditData.workflow_state.premium) {
+                    addMessage(`💵 **Premium:** $${auditData.workflow_state.premium.annual_premium?.toLocaleString()}/year`, 'bot');
+                }
+            }
+        }
+
+        function displayQueueStatus(queueData, quoteId) {
+            addMessage(`📊 **Queue Status Report**`, 'bot');
+            addMessage(`🆔 **ID:** ${quoteId}`, 'bot');
+            addMessage(`📋 **Status:** ${queueData.status}`, 'bot');
+            addMessage(`📅 **Submitted:** ${new Date(queueData.submitted_at).toLocaleDateString()}`, 'bot');
+            
+            if (queueData.status === 'processing') {
+                addMessage(`⏳ **Processing:** Your quote is being analyzed by our AI underwriting system`, 'bot');
+            } else if (queueData.status === 'completed') {
+                addMessage(`✅ **Completed:** Your quote has been processed successfully`, 'bot');
+            } else if (queueData.status === 'failed') {
+                addMessage(`❌ **Failed:** ${queueData.error_message || 'Processing failed'}`, 'bot');
+            }
         }
 
         // Utility functions
@@ -735,15 +842,18 @@
         }
 
         function showRecentQuotes() {
-            addMessage("📋 Here are your recent quotes:", 'bot');
+            addMessage("📋 Here are your recent quotes (Top 5):", 'bot');
             setTimeout(() => {
                 const history = JSON.parse(localStorage.getItem('quoteHistory') || '[]');
                 if (history.length > 0) {
-                    history.slice(0, 3).forEach((quote, index) => {
+                    history.slice(0, 5).forEach((quote, index) => {
                         const date = new Date(quote.timestamp).toLocaleDateString();
                         const decision = quote.result.decision?.decision || 'Processing';
-                        addMessage(`${index + 1}. ${date} - ${quote.submission.address} - ${decision}`, 'bot');
+                        const quoteId = quote.run_id || quote.message_id;
+                        addMessage(`${index + 1}. ${date} - ID: ${quoteId}`, 'bot');
+                        addMessage(`   📍 ${quote.submission.address} - 💰 $${quote.submission.coverage_amount?.toLocaleString()} - ${decision}`, 'bot');
                     });
+                    addMessage("💡 You can check status with: 'status <quote_id>'", 'bot');
                 } else {
                     addMessage("No recent quotes found.", 'bot');
                 }
