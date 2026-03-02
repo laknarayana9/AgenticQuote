@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Simple FastAPI server for Phase 2 testing
+Simple FastAPI server for Phase 3 testing
+Includes LLM integration for advanced decision making
 """
 
 from fastapi import FastAPI, HTTPException
@@ -10,9 +11,10 @@ import os
 import uuid
 import random
 from datetime import datetime
+import json
 
 # Create FastAPI app
-app = FastAPI(title="Agentic Quote-to-Underwrite - Phase 2")
+app = FastAPI(title="Agentic Quote-to-Underwrite - Phase 3")
 
 # Mount static files
 if os.path.exists("static"):
@@ -38,10 +40,11 @@ async def root():
 
 @app.post("/quote/run")
 async def run_quote_processing(request: dict):
-    """Mock quote processing with RAG simulation"""
+    """Enhanced quote processing with LLM integration"""
     try:
         submission = request.get("submission", {})
         use_agentic = request.get("use_agentic", False)
+        use_llm = request.get("use_llm", False)  # Phase 3 LLM option
         
         # Generate mock decision
         decisions = ["ACCEPT", "REFER", "DECLINE"]
@@ -51,6 +54,7 @@ async def run_quote_processing(request: dict):
         # Mock RAG evidence if agentic is enabled
         rag_evidence = []
         rag_assessment = None
+        llm_decision = None
         
         if use_agentic:
             # Mock evidence chunks
@@ -73,6 +77,24 @@ async def run_quote_processing(request: dict):
                     "rule_strength": random.choice(["mandatory", "required", "recommended"])
                 },
                 "chunks_count": len(rag_evidence)
+            }
+        
+        # Mock LLM decision if enabled
+        if use_llm and use_agentic:
+            llm_decision = {
+                "decision": decision,
+                "confidence": min(0.95, confidence + random.uniform(-0.1, 0.1)),
+                "reasoning": f"LLM analysis: Based on the provided evidence and underwriting guidelines, the property {decision.lower()} due to specific risk factors and compliance requirements. The decision considers property characteristics, location risks, and coverage needs.",
+                "citations": [f"LLM Citation {i+1}" for i in range(2)],
+                "required_questions": [
+                    {
+                        "question": "Please provide additional property documentation",
+                        "description": "Required for comprehensive risk assessment"
+                    }
+                ] if decision == "REFER" else [],
+                "referral_triggers": [f"LLM identified trigger: {decision} factors"],
+                "conditions": [f"LLM condition: {decision} requirements"],
+                "processing_time_ms": random.randint(200, 500)
             }
         
         # Mock response
@@ -106,6 +128,8 @@ async def run_quote_processing(request: dict):
             "conditions": [f"Mock condition for {decision}"],
             "rag_evidence": rag_evidence,
             "rag_assessment": rag_assessment,
+            "llm_decision": llm_decision,
+            "decision_comparison": compare_mock_decisions(decision, confidence, llm_decision) if llm_decision else None,
             "requires_human_review": decision in ["REFER", "DECLINE"],
             "human_review_details": {
                 "review_type": "mock_review",
@@ -122,10 +146,81 @@ async def run_quote_processing(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Quote processing failed: {str(e)}")
 
-@app.get("/health")
-async def health():
-    """Health check endpoint"""
-    return {"status": "healthy", "phase": "2"}
+@app.post("/api/llm/query")
+async def llm_query(request: dict):
+    """Mock LLM query endpoint"""
+    try:
+        query = request.get("query", "")
+        query_type = request.get("query_type", "eligibility")
+        use_llm = request.get("use_llm", True)
+        
+        # Mock evidence
+        evidence = [
+            {
+                "chunk_id": f"llm_chunk_{i}",
+                "doc_title": f"LLM Guidelines {i+1}",
+                "section": f"Section {i+1}",
+                "text": f"LLM evidence text for {query_type} analysis...",
+                "relevance_score": random.uniform(0.8, 0.95),
+                "rule_strength": random.choice(["mandatory", "required", "recommended"])
+            }
+            for i in range(5)
+        ]
+        
+        # Mock decisions
+        rag_decision = {
+            "decision": random.choice(["ACCEPT", "REFER", "DECLINE"]),
+            "confidence": random.uniform(0.6, 0.9),
+            "reason": "RAG-based decision analysis"
+        }
+        
+        llm_decision = None
+        comparison = None
+        
+        if use_llm:
+            llm_decision = {
+                "decision": rag_decision["decision"],
+                "confidence": min(0.95, rag_decision["confidence"] + 0.1),
+                "reasoning": f"LLM comprehensive analysis for {query_type}: The evidence supports {rag_decision['decision'].lower()} based on underwriting guidelines and risk assessment principles.",
+                "citations": [f"LLM Citation {i+1}" for i in range(3)],
+                "required_questions": ["Please provide additional information"] if rag_decision["decision"] == "REFER" else [],
+                "referral_triggers": ["LLM identified risk factors"],
+                "conditions": ["LLM specified conditions"],
+                "processing_time_ms": random.randint(300, 600)
+            }
+            
+            comparison = {
+                "agreement": True,
+                "rag_decision": rag_decision["decision"],
+                "llm_decision": llm_decision["decision"],
+                "confidence_difference": abs(rag_decision["confidence"] - llm_decision["confidence"]),
+                "recommendation": "High confidence - both systems agree"
+            }
+        
+        return JSONResponse({
+            "query": query,
+            "query_type": query_type,
+            "llm_decision": llm_decision,
+            "rag_decision": rag_decision,
+            "evidence": evidence,
+            "comparison": comparison,
+            "processing_time_ms": random.randint(200, 400),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM query failed: {str(e)}")
+
+@app.get("/api/llm/health")
+async def llm_health():
+    """LLM engine health check"""
+    return JSONResponse({
+        "status": "mock_mode",
+        "openai_available": False,
+        "api_key_configured": False,
+        "client_initialized": False,
+        "timestamp": datetime.now().isoformat()
+    })
 
 @app.get("/runs")
 async def get_runs(limit: int = 100):
@@ -143,7 +238,8 @@ async def get_runs(limit: int = 100):
             "premium": {
                 "annual_premium": round(random.uniform(500, 2000), 2),
                 "coverage_amount": random.choice([300000, 500000, 750000])
-            }
+            },
+            "llm_enhanced": random.choice([True, False])  # Phase 3 addition
         }
         for i in range(10)  # Generate 10 mock runs
     ]
@@ -169,6 +265,30 @@ async def get_evidence_panel():
         </body>
         </html>
         """)
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "healthy", "phase": "3", "llm_enabled": True}
+
+def compare_mock_decisions(decision: str, confidence: float, llm_decision: dict) -> dict:
+    """Compare mock RAG and LLM decisions"""
+    if not llm_decision:
+        return None
+    
+    llm_dec = llm_decision.get("decision", decision)
+    llm_conf = llm_decision.get("confidence", confidence)
+    
+    agreement = decision == llm_dec
+    confidence_diff = abs(confidence - llm_conf)
+    
+    return {
+        "agreement": agreement,
+        "rag_decision": decision,
+        "llm_decision": llm_dec,
+        "confidence_difference": confidence_diff,
+        "recommendation": "High confidence" if agreement and confidence_diff < 0.2 else "Manual review"
+    }
 
 if __name__ == "__main__":
     import uvicorn

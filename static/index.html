@@ -78,6 +78,11 @@
                             <span class="ml-2 text-sm text-gray-700">🤖 Use Evidence-First AI (RAG)</span>
                         </label>
                         <label class="flex items-center">
+                            <input type="checkbox" id="use_llm" checked
+                                   class="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500">
+                            <span class="ml-2 text-sm text-gray-700">🧠 Use LLM (GPT-4)</span>
+                        </label>
+                        <label class="flex items-center">
                             <input type="checkbox" id="use_queue" class="mr-2" checked>
                             <span class="text-sm text-gray-700">Use Async Queue</span>
                         </label>
@@ -200,23 +205,20 @@
         let currentRunId = null;
         let conversationState = 'greeting';
         
-        // DOM Elements
+        // Form elements
         const elements = {
             loading: document.getElementById('loading'),
-            queueStatus: document.getElementById('queueStatus'),
-            queueDetails: document.getElementById('queueDetails'),
             result: document.getElementById('result'),
-            decisionCard: document.getElementById('decisionCard'),
             decisionContent: document.getElementById('decisionContent'),
-            premiumCard: document.getElementById('premiumCard'),
             premiumContent: document.getElementById('premiumContent'),
-            questionsCard: document.getElementById('questionsCard'),
+            premiumCard: document.getElementById('premiumCard'),
             questionsContent: document.getElementById('questionsContent'),
-            humanReviewCard: document.getElementById('humanReviewCard'),
+            questionsCard: document.getElementById('questionsCard'),
             humanReviewContent: document.getElementById('humanReviewContent'),
+            humanReviewCard: document.getElementById('humanReviewCard'),
             humanReviewActions: document.getElementById('humanReviewActions'),
-            citationsCard: document.getElementById('citationsCard'),
             citationsContent: document.getElementById('citationsContent'),
+            citationsCard: document.getElementById('citationsCard'),
             runDetails: document.getElementById('runDetails'),
             recentRuns: document.getElementById('recentRuns'),
             quoteForm: document.getElementById('quoteForm'),
@@ -228,10 +230,8 @@
             squareFootage: document.getElementById('square_footage'),
             additionalInfo: document.getElementById('additional_info'),
             useAgentic: document.getElementById('use_agentic'),
-            useQueue: document.getElementById('use_queue'),
-            quoteIdLookup: document.getElementById('quoteIdLookup'),
-            quoteLookupResults: document.getElementById('quoteLookupResults'),
-            quoteLookupContent: document.getElementById('quoteLookupContent')
+            useLLM: document.getElementById('use_llm'),
+            useQueue: document.getElementById('use_queue')
         };
         
         // Form submission
@@ -249,6 +249,7 @@
                 foundation_type: "concrete", // Default value since field doesn't exist
                 additional_info: elements.additionalInfo.value,
                 use_agentic: elements.useAgentic.checked,
+                use_llm: elements.useLLM.checked,
                 use_queue: elements.useQueue.checked
             };
             
@@ -264,7 +265,8 @@
                     },
                     body: JSON.stringify({
                         submission: formData,
-                        use_agentic: formData.use_agentic || formData.use_queue
+                        use_agentic: formData.use_agentic,
+                        use_llm: formData.use_llm
                     })
                 });
                 
