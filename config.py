@@ -83,6 +83,7 @@ class DevelopmentSettings(Settings):
     cors_allow_headers: List[str] = ["*"]
     debug: bool = True
     log_level: str = "debug"
+    pdf_path: str = "app/externaldata/California_Property_Risk_Summary_With_RCE.pdf"
 
 
 class ProductionSettings(Settings):
@@ -95,6 +96,7 @@ class ProductionSettings(Settings):
         "https://api.your-frontend.com"
     ]
     cors_allow_methods: List[str] = ["GET", "POST", "PUT", "DELETE"]
+    pdf_path: str = "/app/externaldata/California_Property_Risk_Summary_With_RCE.pdf"
     cors_allow_headers: List[str] = ["Content-Type", "Authorization", "X-API-Key"]
     debug: bool = False
     log_level: str = "info"

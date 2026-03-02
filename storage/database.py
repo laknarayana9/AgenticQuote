@@ -271,3 +271,8 @@ class UnderwritingDB:
 
 # Global database instance
 db = UnderwritingDB()
+
+
+def get_db() -> UnderwritingDB:
+    """Get database instance (lazy initialization pattern)."""
+    return db

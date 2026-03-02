@@ -45,10 +45,6 @@ def create_complete_app() -> FastAPI:
     if os.path.exists("static"):
         app.mount("/static", StaticFiles(directory="static"), name="static")
     
-    # Include Verisk mock API router
-    from app.verisk_mock import router as verisk_router
-    app.include_router(verisk_router)
-    
     # Import PDF parser for property data
     from app.pdf_parser import initialize_property_cache, get_property_cache
     
