@@ -10,6 +10,11 @@ anyio>=4.0.0
 # Database
 # sqlite3 is built-in to Python
 
+# RAG & Vector Database
+chromadb==0.4.18
+sentence-transformers==2.2.2
+numpy==1.24.3
+
 # Security & Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
