@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 import networkx as nx  # For knowledge graph functionality
+from app.mock_data import get_mock_results  # Import mock data function
 
 # Real technology imports
 try:
@@ -37,6 +38,13 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     print("Warning: Redis not available, using mock cache")
+
+try:
+    from sentence_transformers import SentenceTransformer
+    EMBEDDING_MODEL_AVAILABLE = True
+except ImportError:
+    EMBEDDING_MODEL_AVAILABLE = False
+    print("Warning: sentence-transformers not available, using mock embeddings")
 
 logger = logging.getLogger(__name__)
 
@@ -90,18 +98,46 @@ class CognitiveKnowledgeRetrieval:
             self.vector_store = None
             self.collection = None
         
-        # Initialize real Redis cache
+        # Initialize real Redis cache with connection pooling
         if REDIS_AVAILABLE:
             try:
-                self.cache = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+                import os
+                redis_host = os.getenv('REDIS_HOST', 'localhost')
+                redis_port = int(os.getenv('REDIS_PORT', 6379))
+                redis_db = int(os.getenv('REDIS_DB', 0))
+                
+                self.cache = redis.Redis(
+                    host=redis_host, 
+                    port=redis_port, 
+                    db=redis_db, 
+                    decode_responses=True,
+                    connection_pool=redis.ConnectionPool(
+                        host=redis_host,
+                        port=redis_port,
+                        db=redis_db,
+                        decode_responses=True,
+                        max_connections=10
+                    )
+                )
                 # Test connection
                 self.cache.ping()
-                logger.info("✅ Redis cache initialized")
+                logger.info("✅ Redis cache initialized with connection pooling")
             except Exception as e:
                 logger.warning(f"Redis initialization failed: {e}, using mock cache")
                 self.cache = {}  # Fallback to dict cache
         else:
             self.cache = {}  # Mock cache
+        
+        # Initialize embedding model once (performance optimization)
+        if EMBEDDING_MODEL_AVAILABLE:
+            try:
+                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                logger.info("✅ Embedding model loaded once at initialization")
+            except Exception as e:
+                logger.warning(f"Embedding model initialization failed: {e}")
+                self.embedding_model = None
+        else:
+            self.embedding_model = None
         
         # Initialize knowledge graph using NetworkX (lightweight, no external DB needed)
         self.knowledge_graph = nx.DiGraph()
@@ -248,86 +284,41 @@ class CognitiveKnowledgeRetrieval:
         Returns unified results from different content types with proper alignment and scoring.
         """
         # Try ChromaDB first if available
-        if self.collection and CHROMADB_AVAILABLE:
+        if self.collection and CHROMADB_AVAILABLE and self.embedding_model:
             try:
-                # Import sentence transformers for embedding
-                try:
-                    from sentence_transformers import SentenceTransformer
-                    embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                    query_embedding = embedding_model.encode([query]).tolist()
+                # Use pre-loaded embedding model (performance optimization)
+                query_embedding = self.embedding_model.encode([query]).tolist()
+                
+                # Search ChromaDB
+                results = self.collection.query(
+                    query_embeddings=query_embedding,
+                    n_results=5,
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                # Convert to expected format
+                chroma_results = []
+                for i in range(len(results["documents"][0])):
+                    doc = results["documents"][0][i]
+                    metadata = results["metadatas"][0][i]
+                    distance = results["distances"][0][i]
                     
-                    # Search ChromaDB
-                    results = self.collection.query(
-                        query_embeddings=query_embedding,
-                        n_results=5,
-                        include=["documents", "metadatas", "distances"]
-                    )
-                    
-                    # Convert to expected format
-                    chroma_results = []
-                    for i in range(len(results["documents"][0])):
-                        doc = results["documents"][0][i]
-                        metadata = results["metadatas"][0][i]
-                        distance = results["distances"][0][i]
-                        
-                        chroma_results.append({
-                            "content": doc,
-                            "modality": metadata.get("modality", "text"),
-                            "relevance": 1.0 / (1.0 + distance),  # Convert distance to relevance
-                            "evidence_strength": metadata.get("evidence_strength", "informational"),
-                            "source": "chromadb"
-                        })
-                    
-                    logger.info(f"🔍 ChromaDB search found {len(chroma_results)} results")
-                    return chroma_results
-                    
-                except ImportError:
-                    logger.warning("sentence-transformers not available, falling back to mock search")
-                    
+                    chroma_results.append({
+                        "content": doc,
+                        "modality": metadata.get("modality", "text"),
+                        "relevance": 1.0 / (1.0 + distance),  # Convert distance to relevance
+                        "evidence_strength": metadata.get("evidence_strength", "informational"),
+                        "source": "chromadb"
+                    })
+                
+                logger.info(f"🔍 ChromaDB search found {len(chroma_results)} results")
+                return chroma_results
+                
             except Exception as e:
                 logger.warning(f"ChromaDB search failed: {e}, falling back to mock search")
         
         # Fallback to mock search with realistic content
-        if "flood" in query.lower():
-            return [
-                {
-                    "content": "Properties located in Special Flood Hazard Areas (SFHA) require elevation certificates. The lowest floor must be elevated to or above the Base Flood Elevation (BFE).",
-                    "modality": "text",
-                    "relevance": 0.92,
-                    "evidence_strength": "mandatory",
-                    "source": "mock"
-                }
-            ]
-        elif "wildfire" in query.lower():
-            return [
-                {
-                    "content": "Properties within 100 feet of wildland vegetation interface must have defensible space. Clear vegetation within 30 feet of structure and reduce fuel loads up to 100 feet.",
-                    "modality": "text",
-                    "relevance": 0.94,
-                    "evidence_strength": "required",
-                    "source": "mock"
-                }
-            ]
-        elif "age" in query.lower() or "old" in query.lower():
-            return [
-                {
-                    "content": "Dwellings over 50 years old may require additional underwriting review. Foundation condition and roof age are critical factors for older properties.",
-                    "modality": "text",
-                    "relevance": 0.87,
-                    "evidence_strength": "recommended",
-                    "source": "mock"
-                }
-            ]
-        else:
-            return [
-                {
-                    "content": f"Underwriting guidelines for {context.get('property_type', 'residential')} properties in {context.get('location', 'California')}",
-                    "modality": "text",
-                    "relevance": 0.85,
-                    "evidence_strength": "required",
-                    "source": "mock"
-                }
-            ]
+        return get_mock_results(query, context)
     
     def _validate_evidence(self, results: List[Dict], context: Dict[str, Any]) -> List[Dict]:
         """
