@@ -240,17 +240,6 @@ The IntelliUnderwrite AI Platform represents a **paradigm shift** from tradition
 
 ---
 
-## 📞 **Get Started Today**
-
-**Ready to transform your underwriting with intelligent AI?**
-
-🌐 **Request Demo**: [demo@intelliunderwrite.ai](mailto:demo@intelliunderwrite.ai)  
-📞 **Contact Sales**: [sales@intelliunderwrite.ai](mailto:sales@intelliunderwrite.ai)  
-📚 **Documentation**: [docs.intelliunderwrite.ai](https://docs.intelliunderwrite.ai)  
-� **Start Free Trial**: [trial.intelliunderwrite.ai](https://trial.intelliunderwrite.ai)
-
----
-
 **🧠 IntelliUnderwrite AI Platform - Intelligent Underwriting, Decisive Insights** 🚀
 For questions or issues, check the audit logs and API documentation.
 cd /Users/sumedhtuttagunta/code/AgenticQuote

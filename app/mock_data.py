@@ -14,7 +14,7 @@ MOCK_KNOWLEDGE_BASE = {
             "modality": "text",
             "relevance": 0.92,
             "evidence_strength": "mandatory",
-            "source": "mock"
+            "source": "mock",
         }
     ],
     "wildfire": [
@@ -27,7 +27,7 @@ MOCK_KNOWLEDGE_BASE = {
             "modality": "text",
             "relevance": 0.94,
             "evidence_strength": "required",
-            "source": "mock"
+            "source": "mock",
         }
     ],
     "age": [
@@ -40,18 +40,16 @@ MOCK_KNOWLEDGE_BASE = {
             "modality": "text",
             "relevance": 0.87,
             "evidence_strength": "recommended",
-            "source": "mock"
+            "source": "mock",
         }
     ],
     "default": [
         {
-            "content": (
-                "Underwriting guidelines for residential properties in California"
-            ),
+            "content": ("Underwriting guidelines for residential properties in California"),
             "modality": "text",
             "relevance": 0.85,
             "evidence_strength": "required",
-            "source": "mock"
+            "source": "mock",
         }
     ],
 }
