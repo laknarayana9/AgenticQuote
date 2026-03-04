@@ -130,6 +130,8 @@ curl -X POST "http://localhost:8000/quote/run" \
 #### Processing
 - `POST /quote/run` - Process a quote submission
   - `use_agentic: true` enables missing-info loops and citation guardrails
+  - **Human-in-the-Loop**: Automatically detects missing information and requests clarification from underwriters
+  - **Interactive Workflow**: Continues processing once additional information is provided
 - `GET /runs/{run_id}` - Get run status and results
 - `GET /runs/{run_id}/audit` - Get full audit trail with tool calls
 
@@ -138,6 +140,69 @@ curl -X POST "http://localhost:8000/quote/run" \
 - `GET /stats` - Get system statistics
 - `GET /health` - Health check
 - `GET /docs` - Interactive API documentation
+
+## 🔄 Human-in-the-Loop Workflow
+
+### **Missing Information Detection**
+When `use_agentic: true`, the system automatically identifies incomplete submissions and:
+
+1. **🔍 Analyzes Gaps**: Detects missing property details, documentation, or risk factors
+2. **❓ Generates Questions**: Creates specific questions for underwriters to answer
+3. **⏸️ Pauses Processing**: Holds workflow until additional information is provided
+4. **🔄 Resumes Execution**: Continues with enriched data once questions are answered
+
+### **Example Use Case**
+```bash
+# Initial submission with missing roof age
+curl -X POST http://localhost:8000/quote/run -d '{
+  "submission": {
+    "applicant_name": "John Doe",
+    "address": "123 Main St",
+    "property_type": "single_family",
+    "coverage_amount": 500000,
+    "construction_year": 1985
+    # Missing: roof_type, foundation_type
+  },
+  "use_agentic": true
+}'
+
+# Response includes required questions
+{
+  "run_id": "abc123",
+  "status": "waiting_for_info",
+  "required_questions": [
+    {
+      "question": "What is the roof type and age?",
+      "description": "Required for risk assessment",
+      "options": ["asphalt_shingle", "metal", "tile"]
+    },
+    {
+      "question": "What is the foundation type?",
+      "description": "Required for structural evaluation",
+      "options": ["concrete", "crawl_space", "basement"]
+    }
+  ]
+}
+
+# Continue with additional answers
+curl -X POST http://localhost:8000/quote/run -d '{
+  "submission": {
+    "applicant_name": "John Doe",
+    "address": "123 Main St",
+    "property_type": "single_family",
+    "coverage_amount": 500000,
+    "construction_year": 1985,
+    "roof_type": "asphalt_shingle",
+    "foundation_type": "concrete"
+  },
+  "use_agentic": true,
+  "additional_answers": {
+    "roof_type": "asphalt_shingle",
+    "roof_age": "15 years",
+    "foundation_type": "concrete"
+  }
+}'
+```
 
 ## 🔄 Workflow Nodes
 
