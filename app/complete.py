@@ -33,7 +33,12 @@ from app.redis_queue import redis_message_queue, MessagePriority, process_quote_
 # Import rate limiting
 from security import create_rate_limiter
 
-logger = logging.getLogger(__name__)
+# Import centralized logging
+from logging_config import setup_logging, get_logger
+
+# Initialize logging
+setup_logging()
+logger = get_logger(__name__)
 
 # Initialize rate limiter
 rate_limiter = create_rate_limiter()

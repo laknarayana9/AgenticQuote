@@ -9,6 +9,7 @@ import os
 import re
 import json
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -27,6 +28,8 @@ except ImportError:
     print("Warning: sentence-transformers not available, using mock embeddings")
 
 from models.schemas import RetrievalChunk
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -97,7 +100,9 @@ class RAGEngine:
         if EMBEDDINGS_AVAILABLE:
             self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
             self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
+            logger.info("✅ SentenceTransformer embeddings initialized")
         else:
+            logger.warning("⚠️ Using mock embeddings - sentence-transformers not available")
             self.embedding_model = None
             self.embedding_dim = 384  # Mock dimension
             
@@ -117,10 +122,12 @@ class RAGEngine:
             Summary of ingestion results
         """
         print("📚 Starting document ingestion...")
+        logger.info("📚 Starting document ingestion...")
         
         # Clear existing data if forced
         if force_reingest:
             print("🗑️ Clearing existing data...")
+            logger.info("🗑️ Clearing existing data for reingestion")
             try:
                 # Get all existing IDs and delete them
                 existing = self.collection.get()
@@ -135,6 +142,7 @@ class RAGEngine:
         # Process all markdown files
         md_files = list(self.data_dir.glob("*.md"))
         print(f"📄 Found {len(md_files)} markdown files")
+        logger.info(f"📄 Found {len(md_files)} markdown files to process")
         
         total_chunks = 0
         
@@ -145,11 +153,14 @@ class RAGEngine:
                     self.chunks.extend(chunks)
                     total_chunks += len(chunks)
                     print(f"✅ {file_path.name}: {len(chunks)} chunks")
+                    logger.info(f"✅ Processed {file_path.name}: {len(chunks)} chunks")
             except Exception as e:
                 print(f"❌ Error processing {file_path.name}: {e}")
+                logger.error(f"❌ Error processing {file_path.name}: {e}")
         
         # Store in ChromaDB
         if self.chunks:
+            logger.info(f"🗄️ Storing {len(self.chunks)} chunks in ChromaDB")
             self._store_chunks()
         
         summary = {
@@ -391,6 +402,7 @@ class RAGEngine:
     
     def _store_chunks(self):
         print(f"📦 Storing {len(self.chunks)} chunks in ChromaDB...")
+        logger.info(f"📦 Storing {len(self.chunks)} chunks in ChromaDB")
         
         # Prepare documents and embeddings
         documents = [chunk.text for chunk in self.chunks]
@@ -400,9 +412,11 @@ class RAGEngine:
         # Generate embeddings
         if self.embedding_model:
             print("🔢 Generating embeddings...")
+            logger.info(f"🔢 Generating embeddings for {len(documents)} documents")
             embeddings = self.embedding_model.encode(documents).tolist()
         else:
             # Mock embeddings for testing
+            logger.warning("⚠️ Using mock embeddings for testing")
             embeddings = [np.random.random(self.embedding_dim).tolist() for _ in documents]
         
         # Store in batches
@@ -421,6 +435,7 @@ class RAGEngine:
             )
         
         print(f"✅ Successfully stored {len(documents)} chunks")
+        logger.info(f"✅ Successfully stored {len(documents)} chunks in ChromaDB")
     
     def retrieve(self, query: str, n_results: int = 5, 
                  filters: Optional[Dict[str, Any]] = None) -> List[RetrievalChunk]:

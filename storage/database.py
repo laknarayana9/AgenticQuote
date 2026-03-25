@@ -1,9 +1,12 @@
 import sqlite3
 import json
+import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pathlib import Path
 from models.schemas import RunRecord, WorkflowState, HumanReviewRecord, QuoteRecord
+
+logger = logging.getLogger(__name__)
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -21,12 +24,14 @@ class UnderwritingDB:
     def __init__(self, db_path: str = "storage/underwriting.db"):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"🗄️ Initializing database at {self.db_path}")
         self.init_db()
     
     def init_db(self):
         """
         Initialize the database schema.
         """
+        logger.info("🔧 Initializing database schema")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS run_records (
@@ -107,11 +112,14 @@ class UnderwritingDB:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_status ON run_records(status)
             """)
+            
+            logger.info("✅ Database schema initialized successfully")
     
     def save_run_record(self, record: RunRecord) -> str:
         """
         Save a run record to the database.
         """
+        logger.info(f"💾 Saving run record: {record.run_id}")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO run_records 

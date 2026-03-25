@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature implements a comprehensive human-in-the-loop workflow for quotes that require human review, following production best practices for safety and compliance.
+This feature implements a comprehensive human-in-the-loop(HITL) workflow for quotes that require human review, following production best practices for safety and compliance.
 
 ## Workflow Scenarios
 

@@ -141,7 +141,7 @@ curl -X POST "http://localhost:8000/quote/run" \
 - `GET /health` - Health check
 - `GET /docs` - Interactive API documentation
 
-## 🔄 Human-in-the-Loop Workflow
+## 🔄 Human-in-the-Loop(HITL) Workflow
 
 ### **Missing Information Detection**
 When `use_agentic: true`, the system automatically identifies incomplete submissions and:

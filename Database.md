@@ -56,7 +56,7 @@ CREATE TABLE run_records (
 
 ### 2. `human_review_records`
 
-**Purpose**: Manages human-in-the-loop review workflow
+**Purpose**: Manages human-in-the-loop(HITL) review workflow
 
 ```sql
 CREATE TABLE human_review_records (
