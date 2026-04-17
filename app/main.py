@@ -6,10 +6,12 @@ from typing import Dict, Any, Optional
 import uuid
 from datetime import datetime
 
-from models.schemas import QuoteSubmission, RunRecord, WorkflowState
+from models.schemas import QuoteSubmission, RunRecord, WorkflowState, HO3Submission
 from workflows.graph import run_underwriting_workflow
 from workflows.agentic_graph import run_agentic_underwriting_workflow
+from workflows.phase_a_graph import run_phase_a_workflow
 from storage.database import db
+from app.api_canonical import router as canonical_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -30,12 +32,19 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Include Canonical API router
+app.include_router(canonical_router)
+
 
 # Request/Response models
 class QuoteRunRequest(BaseModel):
     submission: QuoteSubmission
     use_agentic: bool = False  # Enable agentic behavior
     additional_answers: Optional[Dict[str, Any]] = None  # Answers to missing info questions
+
+
+class HO3RunRequest(BaseModel):
+    submission: HO3Submission  # Canonical HO3 submission format
 
 
 class QuoteRunResponse(BaseModel):
@@ -164,6 +173,70 @@ async def run_quote_processing(request: QuoteRunRequest):
     except Exception as e:
         # Create a failed run record
         error_state = WorkflowState(quote_submission=request.submission)
+        run_id = store_run_record(error_state, status="failed", error_message=str(e))
+        
+        raise HTTPException(
+            status_code=500,
+            detail=f"Processing failed: {str(e)}"
+        )
+
+
+@app.post("/quote/ho3", response_model=QuoteRunResponse)
+async def run_ho3_quote_processing(request: HO3RunRequest):
+    """
+    Process an HO3 submission through the Phase A workflow with 7 specialized agents.
+    """
+    try:
+        # Run Phase A workflow
+        workflow_state = run_phase_a_workflow(request.submission.model_dump())
+        
+        # Store the run record
+        run_id = store_run_record(workflow_state)
+        
+        # Prepare response from decision packet if available
+        if workflow_state.decision_packet:
+            decision_dict = {
+                "decision": workflow_state.decision_packet.decision.value,
+                "rationale": workflow_state.decision_packet.reason_summary,
+                "citations": workflow_state.decision_packet.citations
+            }
+            premium_dict = workflow_state.decision_packet.premium_indication
+            required_questions = []  # Questions are in decision packet's next_steps
+            
+            # Determine message based on decision
+            if workflow_state.decision_packet.decision.value == "ACCEPT":
+                message = "Quote accepted for policy issuance"
+            elif workflow_state.decision_packet.decision.value == "REFER":
+                message = "Quote referred for manual review"
+            elif workflow_state.decision_packet.decision.value == "DECLINE":
+                message = "Quote declined"
+            else:
+                message = "Processing complete"
+        else:
+            # Fallback to legacy decision format
+            decision_dict = workflow_state.decision.dict() if workflow_state.decision else None
+            premium_dict = workflow_state.premium_breakdown if hasattr(workflow_state, 'premium_breakdown') else None
+            required_questions = []
+            message = "Processing complete"
+        
+        return QuoteRunResponse(
+            run_id=run_id,
+            status=workflow_state.status,
+            decision=decision_dict,
+            premium=premium_dict,
+            citations=decision_dict.get("citations", []) if decision_dict else [],
+            required_questions=required_questions,
+            message=message
+        )
+        
+    except Exception as e:
+        # Create a failed run record
+        error_state = WorkflowState(quote_submission=QuoteSubmission(
+            applicant_name=request.submission.applicant.full_name,
+            address=request.submission.risk.property_address,
+            property_type=request.submission.risk.dwelling_type,
+            coverage_amount=request.submission.coverage_request.coverage_a
+        ))
         run_id = store_run_record(error_state, status="failed", error_message=str(e))
         
         raise HTTPException(

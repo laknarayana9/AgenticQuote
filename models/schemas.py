@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
 from enum import Enum
 
@@ -8,6 +8,36 @@ class DecisionType(str, Enum):
     ACCEPT = "ACCEPT"
     REFER = "REFER"
     DECLINE = "DECLINE"
+
+
+# Canonical HO3 Schema - Phase A Enhancement
+class Applicant(BaseModel):
+    """Applicant information for HO3 policy"""
+    full_name: str = Field(..., description="Full legal name of the applicant")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+
+
+class RiskProfile(BaseModel):
+    """Property risk information for HO3 underwriting"""
+    property_address: str = Field(..., description="Full property address")
+    occupancy: Literal["owner_occupied_primary", "owner_occupied_secondary", "tenant_occupied", "vacant"] = Field(..., description="Property occupancy type")
+    dwelling_type: Literal["single_family", "condo", "townhouse", "row_house", "manufactured"] = Field(..., description="Type of dwelling")
+    year_built: int = Field(..., ge=1800, le=2026, description="Year property was built")
+    roof_age_years: Optional[int] = Field(None, ge=0, description="Age of roof in years")
+    construction_type: Literal["frame", "masonry", "superior_masonry", "fire_resistive", "manufactured"] = Field(..., description="Construction type")
+    stories: int = Field(default=1, ge=1, le=5, description="Number of stories")
+
+
+class CoverageRequest(BaseModel):
+    """Coverage request for HO3 policy (Coverages A-F)"""
+    coverage_a: float = Field(..., gt=0, description="Coverage A - Dwelling limit")
+    coverage_b_pct: float = Field(default=10, ge=0, le=100, description="Coverage B - Other structures as % of A")
+    coverage_c_pct: float = Field(default=50, ge=0, le=100, description="Coverage C - Personal property as % of A")
+    coverage_d_pct: float = Field(default=20, ge=0, le=100, description="Coverage D - Loss of use as % of A")
+    coverage_e: float = Field(default=300000, ge=0, description="Coverage E - Liability limit")
+    coverage_f: float = Field(default=5000, ge=0, description="Coverage F - Medical payments limit")
+    deductible: float = Field(default=1000, ge=0, description="Policy deductible")
 
 
 class QuoteSubmission(BaseModel):
@@ -20,6 +50,15 @@ class QuoteSubmission(BaseModel):
     roof_type: Optional[str] = None
     foundation_type: Optional[str] = None
     additional_info: Optional[str] = None
+
+
+# Phase A Enhancement: Canonical HO3 Submission
+class HO3Submission(BaseModel):
+    """Canonical HO3 submission using structured schema"""
+    applicant: Applicant
+    risk: RiskProfile
+    coverage_request: CoverageRequest
+    quote_id: Optional[str] = Field(None, description="Quote ID if resuming")
 
 
 class NormalizedAddress(BaseModel):
@@ -60,6 +99,25 @@ class RetrievalChunk(BaseModel):
     text: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     relevance_score: Optional[float] = None
+    score: Optional[float] = Field(None, description="Similarity score from retrieval")
+    effective_date: Optional[str] = Field(None, description="Effective date of the guideline")
+
+
+# Phase A Enhancement: Decision Packet
+class DecisionPacket(BaseModel):
+    """Final decision packet suitable for producer-facing explanation, underwriter review, and audit"""
+    decision: DecisionType
+    decision_confidence: float = Field(..., ge=0, le=1, description="Confidence in the decision")
+    reason_summary: str = Field(..., description="Concise summary of the decision rationale")
+    citations: List[Dict[str, Any]] = Field(default_factory=list, description="List of citation objects with chunk_id, section, doc_version")
+    premium_indication: Optional[Dict[str, Any]] = Field(None, description="Premium indication with annual_premium, currency")
+    needs_human_review: bool = Field(default=False, description="Whether human review is required")
+    review_reason_codes: List[str] = Field(default_factory=list, description="Reason codes for review")
+    next_steps: List[str] = Field(default_factory=list, description="Recommended next steps")
+    facts_used: Dict[str, Any] = Field(default_factory=dict, description="Key facts used in decision")
+    evidence_cited: List[str] = Field(default_factory=list, description="Evidence chunk IDs cited")
+    tool_calls_summary: List[Dict[str, Any]] = Field(default_factory=list, description="Summary of tool calls made")
+    trace_link: Optional[str] = Field(None, description="Link to trace in observability system")
 
 
 class UWTrigger(BaseModel):
@@ -111,7 +169,8 @@ class WorkflowState(BaseModel):
     model_config = ConfigDict(json_encoders={
         datetime: lambda v: v.isoformat()
     })
-    
+
+    # Original fields for backward compatibility
     quote_submission: QuoteSubmission
     enrichment_result: Optional[EnrichmentResult] = None
     retrieved_guidelines: List[RetrievalChunk] = Field(default_factory=list)
@@ -123,6 +182,40 @@ class WorkflowState(BaseModel):
     missing_info: List[str] = Field(default_factory=list)
     additional_answers: Dict[str, Any] = Field(default_factory=dict)
     citation_guardrail_triggered: bool = False
+
+    # Phase A Enhancement: Extended WorkflowState
+    run_id: Optional[str] = Field(None, description="Unique run identifier")
+    quote_id: Optional[str] = Field(None, description="Quote identifier")
+    status: Literal["processing", "waiting_for_info", "pending_review", "completed", "failed"] = Field("processing", description="Current status")
+
+    # Canonical HO3 submission (new format)
+    submission_raw: Optional[Dict[str, Any]] = Field(None, description="Raw submission data")
+    submission_canonical: Optional[HO3Submission] = Field(None, description="Canonical HO3 submission")
+
+    # Enhanced enrichment with confidence map
+    enrichment: Optional[Dict[str, Any]] = Field(None, description="Detailed enrichment including property_profile, hazard_profile, location_profile, confidence_map")
+
+    # Enhanced retrieval with metrics
+    retrieval: Optional[Dict[str, Any]] = Field(None, description="Retrieval details including queries, filters, evidence_chunks, retrieval_metrics")
+
+    # Governed web search
+    search: Optional[Dict[str, Any]] = Field(None, description="Web search details including enabled flag, queries, results, policy_decisions")
+
+    # Assessment and verification
+    assessment: Optional[Dict[str, Any]] = Field(None, description="Structured assessment output")
+    verification: Optional[Dict[str, Any]] = Field(None, description="Verification/guardrail output")
+
+    # Rating
+    rating: Optional[Dict[str, Any]] = Field(None, description="Rating details")
+
+    # Final decision packet
+    decision_packet: Optional[DecisionPacket] = Field(None, description="Final decision packet")
+
+    # Events log
+    events: List[Dict[str, Any]] = Field(default_factory=list, description="Event log for audit trail")
+
+    # Trace information
+    trace: Optional[Dict[str, Any]] = Field(None, description="Trace information including phoenix_trace_id, phoenix_url")
 
 
 class RunRecord(BaseModel):
