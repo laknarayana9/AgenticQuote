@@ -5,11 +5,17 @@ Implements the 7 specialized agents with strict contracts as specified in the en
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
+import time
 from models.schemas import (
     HO3Submission, RiskProfile, CoverageRequest, Applicant,
     WorkflowState, RetrievalChunk, DecisionPacket, DecisionType
 )
 from tools.mock_providers import MockProviderGateway
+from providers.provider_gateway import ProviderGateway
+from providers.llm_client import get_llm_client
+from providers.web_search import get_web_search
+from prompts.underwriting_assessor import UNDERWRITING_ASSESSOR_PROMPT
+from observability import get_tracer, record_agent_decision
 
 
 class AgentContractError(Exception):
@@ -213,7 +219,15 @@ class EnrichmentAgent:
     """
 
     def __init__(self):
-        self.gateway = MockProviderGateway()
+        # Use ProviderGateway if USE_REAL_PROVIDERS is true, otherwise use MockProviderGateway directly
+        import os
+        if os.getenv("USE_REAL_PROVIDERS", "false").lower() == "true":
+            from providers.provider_gateway import ProviderGateway
+            self.gateway = ProviderGateway()
+            self.use_real = True
+        else:
+            self.gateway = MockProviderGateway()
+            self.use_real = False
     
     def enrich(self, canonical_submission: HO3Submission) -> Dict[str, Any]:
         """
@@ -221,20 +235,35 @@ class EnrichmentAgent:
         """
         address = canonical_submission.risk.property_address
         
-        # Call all mock providers
         try:
-            geocode = self.gateway.mock_geocode(address)
-            property_profile = self.gateway.mock_property_profile(address)
-            # Override mock provider's year_built with submission's actual year_built
-            property_profile["year_built"] = canonical_submission.risk.year_built
-            hazard_scores = self.gateway.mock_hazard_scores(
-                address, geocode["latitude"], geocode["longitude"]
-            )
-            census_data = self.gateway.mock_census_data(address)
-            claims_history = self.gateway.mock_claims_history(address, canonical_submission.risk.dwelling_type)
-            replacement_cost = self.gateway.mock_replacement_cost(
-                address, property_profile["square_feet"], property_profile["year_built"]
-            )
+            if self.use_real:
+                # Use real providers via ProviderGateway
+                geocode = self.gateway.geocode(address)
+                property_profile = self.gateway.get_property_profile(address)
+                property_profile["year_built"] = canonical_submission.risk.year_built
+                
+                # Extract county from geocode for hazard scores
+                county = geocode.get("county", "Unknown")
+                state = geocode.get("state", "CA")
+                hazard_scores = self.gateway.get_hazard_scores(county, state)
+                claims_history = self.gateway.get_claims_history(address, canonical_submission.risk.dwelling_type)
+                
+                # Providers not yet implemented in real providers
+                census_data = {"confidence": 0.5, "warnings": ["Census data not yet implemented"]}
+                replacement_cost = {"confidence": 0.5, "warnings": ["Replacement cost not yet implemented"]}
+            else:
+                # Use mock providers directly (maintains backward compatibility)
+                geocode = self.gateway.mock_geocode(address)
+                property_profile = self.gateway.mock_property_profile(address)
+                property_profile["year_built"] = canonical_submission.risk.year_built
+                hazard_scores = self.gateway.mock_hazard_scores(
+                    address, geocode["latitude"], geocode["longitude"]
+                )
+                census_data = self.gateway.mock_census_data(address)
+                claims_history = self.gateway.mock_claims_history(address, canonical_submission.risk.dwelling_type)
+                replacement_cost = self.gateway.mock_replacement_cost(
+                    address, property_profile["square_feet"], property_profile["year_built"]
+                )
             
             # Build confidence map
             confidence_map = {
@@ -396,9 +425,110 @@ class UnderwritingAssessorAgent:
     - CONTRADICTORY_FACTS: cannot reconcile property facts → route to refer
     """
 
+    def __init__(self):
+        self.llm_client = get_llm_client()
+        self.use_llm = self.llm_client.enabled
+
     def assess(self, enrichment_data: Dict[str, Any], evidence_chunks: List[Dict]) -> Dict[str, Any]:
         """
         Perform underwriting assessment based on enrichment and evidence.
+        """
+        tracer = get_tracer("underwriting_assessor")
+        
+        with tracer.start_as_current_span("underwriting_assessment") as span:
+            # Extract key facts
+            hazard_profile = enrichment_data.get("hazard_profile", {})
+            property_profile = enrichment_data.get("property_profile", {})
+            claims_history = enrichment_data.get("claims_history", {})
+            
+            span.set_attribute("hazard.wildfire_score", hazard_profile.get("wildfire_risk_score", 0))
+            span.set_attribute("property.year_built", property_profile.get("year_built", 2026))
+            span.set_attribute("claims.loss_count", claims_history.get("loss_count_5yr", 0))
+            span.set_attribute("use_llm", self.use_llm)
+            
+            # Use LLM if enabled, otherwise use deterministic logic
+            if self.use_llm:
+                return self._assess_with_llm(enrichment_data, evidence_chunks, span)
+            else:
+                return self._assess_deterministic(enrichment_data, evidence_chunks, span)
+    
+    def _assess_with_llm(self, enrichment_data: Dict[str, Any], evidence_chunks: List[Dict], span) -> Dict[str, Any]:
+        """
+        Perform assessment using LLM.
+        """
+        try:
+            # Extract data for prompt
+            hazard_profile = enrichment_data.get("hazard_profile", {})
+            property_profile = enrichment_data.get("property_profile", {})
+            claims_history = enrichment_data.get("claims_history", {})
+            location_profile = enrichment_data.get("location_profile", {})
+            
+            # Format prompt
+            prompt = UNDERWRITING_ASSESSOR_PROMPT.format(
+                address=location_profile.get("normalized_address", "Unknown"),
+                year_built=property_profile.get("year_built", 2026),
+                square_footage=property_profile.get("square_feet", 2000),
+                dwelling_type=property_profile.get("dwelling_type", "single_family"),
+                occupancy=property_profile.get("occupancy", "owner_occupied_primary"),
+                construction_type=property_profile.get("construction_type", "frame"),
+                roof_type=property_profile.get("roof_type", "asphalt_shingle"),
+                roof_age_years=property_profile.get("roof_age_years", 0),
+                wildfire_risk=hazard_profile.get("wildfire", {}).get("risk_level", "Low"),
+                wildfire_score=hazard_profile.get("wildfire", {}).get("score", 0),
+                flood_risk=hazard_profile.get("flood", {}).get("risk_level", "Low"),
+                flood_score=hazard_profile.get("flood", {}).get("score", 0),
+                wind_risk=hazard_profile.get("wind", {}).get("risk_level", "Low"),
+                wind_score=hazard_profile.get("wind", {}).get("score", 0),
+                earthquake_risk=hazard_profile.get("earthquake", {}).get("risk_level", "Low"),
+                earthquake_score=hazard_profile.get("earthquake", {}).get("score", 0),
+                loss_count=claims_history.get("loss_count_5yr", 0),
+                total_paid=claims_history.get("total_paid_5yr", 0),
+                coverage_a=500000,  # TODO: extract from actual submission
+                coverage_b=50000,
+                coverage_c=150000,
+                coverage_d=50000,
+                deductible=1000
+            )
+            
+            # Call LLM
+            messages = [{"role": "user", "content": prompt}]
+            response = self.llm_client.chat_completion(messages, max_tokens=500)
+            
+            # Parse LLM response
+            import json
+            llm_result = json.loads(response["content"])
+            
+            span.set_attribute("llm.cost", response["cost"])
+            span.set_attribute("llm.tokens", response["usage"]["total_tokens"])
+            
+            # Map LLM decision to our decision format
+            decision_mapping = {
+                "ACCEPT": "QUOTE_ELIGIBLE",
+                "REFER": "REFER",
+                "DECLINE": "DECLINE"
+            }
+            preliminary_decision = decision_mapping.get(llm_result["decision"], "REFER")
+            
+            return {
+                "preliminary_decision": preliminary_decision,
+                "eligibility_score": 1.0 - (llm_result.get("risk_score", 50) / 100),
+                "risk_factors": [{"code": f"LLM_{factor}" for factor in llm_result.get("key_factors", [])}],
+                "required_questions": [],
+                "conditions": [],
+                "citations_used": [c.get("chunk_id") for c in evidence_chunks],
+                "confidence": 0.8,
+                "llm_used": True,
+                "llm_rationale": llm_result.get("rationale", "")
+            }
+            
+        except Exception as e:
+            logger.error(f"LLM assessment failed, falling back to deterministic: {e}")
+            span.set_attribute("llm_error", str(e))
+            return self._assess_deterministic(enrichment_data, evidence_chunks, span)
+    
+    def _assess_deterministic(self, enrichment_data: Dict[str, Any], evidence_chunks: List[Dict], span) -> Dict[str, Any]:
+        """
+        Perform assessment using deterministic logic (fallback).
         """
         # Extract key facts
         hazard_profile = enrichment_data.get("hazard_profile", {})
@@ -448,12 +578,20 @@ class UnderwritingAssessorAgent:
         eligibility_score = max(0, min(1, eligibility_score))
         
         # Determine preliminary decision
-        if eligibility_score >= 0.5:
-            preliminary_decision = "QUOTE_ELIGIBLE"
-        elif eligibility_score < 0.3:
-            preliminary_decision = "DECLINE"
-        else:
-            preliminary_decision = "REFER"
+        if not locals().get("preliminary_decision"):  # Check if already set by old construction
+            if eligibility_score >= 0.5:
+                preliminary_decision = "QUOTE_ELIGIBLE"
+            elif eligibility_score < 0.3:
+                preliminary_decision = "DECLINE"
+            else:
+                preliminary_decision = "REFER"
+        
+        span.set_attribute("decision", preliminary_decision)
+        span.set_attribute("eligibility_score", eligibility_score)
+        span.set_attribute("risk_factor_count", len(risk_factors))
+        
+        # Record agent decision metric
+        record_agent_decision("underwriting_assessor", preliminary_decision, 0.85)
         
         return {
             "preliminary_decision": preliminary_decision,
@@ -485,6 +623,10 @@ class VerifierGuardrailAgent:
     - VERIFIER_TIMEOUT: fail safe to REFER
     """
 
+    def __init__(self):
+        self.web_search = get_web_search()
+        self.use_web_search = self.web_search.enabled
+
     def verify(self, assessment: Dict[str, Any], evidence_chunks: List[Dict], search_results: Optional[Dict] = None) -> Dict[str, Any]:
         """
         Verify assessment for citations, contradictions, and policy compliance.
@@ -492,6 +634,7 @@ class VerifierGuardrailAgent:
         issues = []
         decision_allowed = True
         forced_decision = None
+        external_verification = None
         
         # Check for citations
         citations = assessment.get("citations_used", [])
@@ -511,6 +654,37 @@ class VerifierGuardrailAgent:
         # Check for contradictions
         contradiction_score = 0.0  # Simplified for MVP
         
+        # Web search verification if enabled
+        if self.use_web_search and search_results is None:
+            # Perform web search for critical risk factors
+            critical_factors = [f for f in risk_factors if f.get("severity") == "high"]
+            if critical_factors:
+                try:
+                    # Use first critical factor for web search verification
+                    factor_code = critical_factors[0].get("code", "")
+                    if "WILDFIRE" in factor_code:
+                        external_verification = self.web_search.verify_property_risk(
+                            assessment.get("property_address", ""), "wildfire"
+                        )
+                    elif "FLOOD" in factor_code:
+                        external_verification = self.web_search.verify_property_risk(
+                            assessment.get("property_address", ""), "flood"
+                        )
+                except Exception as e:
+                    logger.error(f"Web search verification failed: {e}")
+        
+        # Use provided search results if available
+        if search_results:
+            external_verification = search_results
+        
+        # Check external verification
+        if external_verification and not external_verification.get("verified", True):
+            issues.append({
+                "type": "EXTERNAL_VERIFICATION_FAILED",
+                "detail": "External verification does not support internal assessment",
+                "field": "external_search"
+            })
+        
         # Force REFER if critical issues
         if len(issues) > 0:
             decision_allowed = False
@@ -524,13 +698,18 @@ class VerifierGuardrailAgent:
         if evidence_coverage_score < 0.5:
             required_actions.append("Improve evidence coverage for decision.")
         
+        if external_verification and not external_verification.get("verified", True):
+            required_actions.append("Review external verification results and update assessment.")
+        
         return {
             "decision_allowed": decision_allowed,
             "forced_decision": forced_decision,
             "issues": issues,
             "evidence_coverage_score": round(evidence_coverage_score, 2),
             "contradiction_score": contradiction_score,
-            "required_actions": required_actions
+            "required_actions": required_actions,
+            "external_verification": external_verification,
+            "web_search_used": self.use_web_search
         }
 
 

@@ -9,6 +9,7 @@ anyio>=4.0.0
 
 # Database
 # sqlite3 is built-in to Python
+psycopg2-binary==2.9.9
 
 # RAG & Vector Database
 chromadb==0.4.18
@@ -30,3 +31,16 @@ rich==13.7.0
 
 # Knowledge Graph
 networkx==3.2.1
+
+# Observability - OpenTelemetry
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-sqlalchemy==0.42b0
+opentelemetry-exporter-otlp==1.21.0
+opentelemetry-semantic-conventions==0.42b0
+
+# Phoenix/Arize for trace visualization
+arize-phoenix==4.0.0
+openinference-instrumentation==0.1.5
+openinference-instrumentation-openai==0.1.5

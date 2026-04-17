@@ -12,6 +12,7 @@ from workflows.agentic_graph import run_agentic_underwriting_workflow
 from workflows.phase_a_graph import run_phase_a_workflow
 from storage.database import db
 from app.api_canonical import router as canonical_router
+from observability import observability
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -34,6 +35,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Include Canonical API router
 app.include_router(canonical_router)
+
+
+# Startup event to initialize observability
+@app.on_event("startup")
+async def startup_event():
+    """Initialize observability on startup."""
+    observability.initialize()
+    observability.instrument_fastapi(app)
 
 
 # Request/Response models
