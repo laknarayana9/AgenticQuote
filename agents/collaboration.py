@@ -187,8 +187,27 @@ class AgentCommunication:
             correlation_id=correlation_id
         )
         
-        # Wait for response (simplified - in production would use async/await)
-        # For now, return None as this is a synchronous implementation
+        # Wait for response (simplified synchronous implementation)
+        # In production, this would use async/await with proper message passing
+        import time
+        
+        start_time = time.time()
+        timeout_seconds = timeout_ms / 1000.0
+        
+        while time.time() - start_time < timeout_seconds:
+            # Check for response message
+            messages = self.get_messages(recipient)
+            for message in messages:
+                if (message.message_type == MessageType.RESPONSE and 
+                    message.correlation_id == correlation_id and
+                    message.reply_to == correlation_id):
+                    return message.content
+            
+            # Small delay to prevent busy waiting
+            time.sleep(0.01)
+        
+        # Timeout reached
+        logger.warning(f"Request timeout from {sender} to {recipient} (correlation_id: {correlation_id})")
         return None
     
     def broadcast(

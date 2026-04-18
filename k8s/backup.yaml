@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: production
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command:
+            - sh
+            - -c
+            - |
+              BACKUP_DIR="/backup/$(date +%Y%m%d_%H%M%S)"
+              mkdir -p $BACKUP_DIR
+              PGPASSWORD=$POSTGRES_PASSWORD pg_dump -h postgres-primary -U postgres -d agenticquote -f $BACKUP_DIR/backup.sql
+              tar -czf $BACKUP_DIR.tar.gz $BACKUP_DIR
+              rm -rf $BACKUP_DIR
+              # Upload to S3 (requires aws cli and credentials)
+              # aws s3 cp $BACKUP_DIR.tar.gz s3://agenticquote-backups/postgres/
+              echo "Backup completed: $BACKUP_DIR.tar.gz"
+            env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: password
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: production
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 500Gi

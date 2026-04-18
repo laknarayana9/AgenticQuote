@@ -107,8 +107,8 @@ async def run_quote_processing(request: dict):
                 "reason": f"Mock {decision.lower()} decision based on evidence review"
             },
             "premium": {
-                "annual_premium": random.uniform(500, 2000),
-                "monthly_premium": random.uniform(40, 170),
+                "annual_premium": round(random.uniform(500, 2000), 2),
+                "monthly_premium": round(random.uniform(40, 170), 2),
                 "coverage_amount": submission.get("coverage_amount", 500000)
             },
             "citations": [

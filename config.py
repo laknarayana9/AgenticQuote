@@ -91,9 +91,9 @@ class ProductionSettings(Settings):
     
     # Restrict CORS to specific domains in production
     cors_origins: List[str] = [
-        "https://your-frontend.com",
-        "https://admin.your-frontend.com",
-        "https://api.your-frontend.com"
+        "https://example.com",
+        "https://admin.example.com",
+        "https://api.example.com"
     ]
     cors_allow_methods: List[str] = ["GET", "POST", "PUT", "DELETE"]
     pdf_path: str = "/app/externaldata/California_Property_Risk_Summary_With_RCE.pdf"

@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-replica
+  namespace: production
+spec:
+  serviceName: postgres-replica
+  replicas: 2
+  selector:
+    matchLabels:
+      app: postgres
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: postgres
+        role: replica
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - name: postgres
+          containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: agenticquote
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: password
+        - name: POSTGRES_REPLICATION_USER
+          value: replicator
+        - name: POSTGRES_REPLICATION_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: replication-password
+        - name: POSTGRES_PRIMARY_HOST
+          value: postgres-primary-0.postgres-primary.production.svc.cluster.local
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h $POSTGRES_PRIMARY_HOST; do
+            echo "Waiting for primary to be ready..."
+            sleep 2
+          done
+          pg_basebackup -h $POSTGRES_PRIMARY_HOST -D /var/lib/postgresql/data/pgdata -U replicator -P -v -R -X stream -C -S replication_slot
+          echo "standby.signal" > /var/lib/postgresql/data/pgdata/standby.signal
+          echo "primary_conninfo = 'host=$POSTGRES_PRIMARY_HOST port=5432 user=replicator password=$POSTGRES_REPLICATION_PASSWORD'" >> /var/lib/postgresql/data/pgdata/postgresql.auto.conf
+          echo "hot_standby = on" >> /var/lib/postgresql/data/pgdata/postgresql.auto.conf
+          echo "max_standby_streaming_delay = 0" >> /var/lib/postgresql/data/pgdata/postgresql.auto.conf
+          docker-entrypoint.sh postgres
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 100Gi

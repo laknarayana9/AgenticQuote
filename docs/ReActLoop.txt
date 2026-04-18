@@ -1,0 +1,459 @@
+Agreed. Sprint 1 needs to do more than add a generic ReAct shell. For this repo, Sprint 1 should already demonstrate **insurance-aware reasoning** so the enhancement looks credible and useful even before later sprints.
+
+Below is the **updated Sprint 1** section you can replace in the spec.
+
+---
+
+# Sprint 1 — ReAct Loop with HO3 Underwriting Domain Logic
+
+## Objective
+
+Enhance the existing underwriting graph with a **bounded ReAct loop that is already aware of HO3 quoting priorities**, so the first sprint produces insurance-specific adaptive behavior instead of only generic agent orchestration.
+
+This sprint should make the system capable of:
+
+* identifying underwriting gaps in an HO3 submission
+* prioritizing insurance-relevant next actions
+* using domain-specific triggers for roof and California wildfire review
+* producing a preliminary underwriting recommendation path:
+
+  * continue
+  * retrieve more evidence
+  * refer
+  * decline candidate
+  * request missing information
+
+---
+
+## Enhancement approach
+
+Do **not** replace the existing graph or decision flow.
+
+Instead:
+
+* preserve current nodes such as validation, enrichment, retrieval, rating, and decision
+* add an insurance-aware reasoning controller on top of the current graph
+* use HO3-specific rules to determine the next best step
+* keep deterministic fallback behavior if reasoning is unavailable
+
+This sprint should introduce **domain-specific action prioritization**, not just iterative execution.
+
+---
+
+## Sprint 1 scope
+
+This sprint must support the following HO3 underwriting scenarios:
+
+1. **Missing or uncertain roof information**
+
+   * roof age missing
+   * roof material missing
+   * roof answers inconsistent with property facts
+
+2. **California wildfire review**
+
+   * property is in California
+   * wildfire exposure review required
+   * red-zone or high brush/hazard risk suspected
+
+3. **Incomplete quote blocking conditions**
+
+   * missing address quality
+   * occupancy unclear
+   * prior claims incomplete
+   * dwelling information insufficient for quote
+
+4. **Early referral / decline indicators**
+
+   * high wildfire risk + aging roof
+   * critical submission gaps
+   * contradiction between applicant input and external evidence
+
+---
+
+## Insurance-aware reasoning model
+
+The ReAct loop in Sprint 1 should reason about the quote using these domain questions:
+
+* Is the address trustworthy enough for downstream underwriting?
+* Are roof attributes complete enough for eligibility/risk review?
+* Does the property require California wildfire hazard review?
+* Is the submission sufficiently complete for quote progression?
+* Is there already enough evidence to continue, or should the case be referred?
+
+This gives Sprint 1 a real underwriting decision posture rather than a generic tool loop.
+
+---
+
+## Domain-specific action categories
+
+The controller should choose among the following actions:
+
+### 1. `run_existing_node`
+
+Invoke an existing underwriting graph node such as:
+
+* validation
+* enrichment
+* retrieval
+* rating
+* decision
+
+### 2. `request_missing_information`
+
+Used when quote progression is blocked by incomplete intake data.
+
+Examples:
+
+* missing occupancy
+* missing year built
+* ambiguous roof details
+* incomplete applicant claims history
+
+### 3. `flag_domain_review`
+
+Set a domain review requirement without yet invoking advanced dynamic selection.
+
+Examples:
+
+* `roof_review_required`
+* `wildfire_review_required`
+* `guideline_review_required`
+
+### 4. `retrieve_guideline_evidence`
+
+Use existing retrieval/guideline lookup for underwriting support.
+
+Examples:
+
+* retrieve roof-age guidance
+* retrieve California wildfire eligibility guidance
+* retrieve refer/decline criteria
+
+### 5. `candidate_refer`
+
+Mark the case as requiring refer unless later evidence clears it.
+
+### 6. `candidate_decline`
+
+Mark the case as a decline candidate if domain conditions are severe enough, but final decline still remains subject to existing guardrails.
+
+---
+
+## Required HO3 intake signals for Sprint 1
+
+Sprint 1 should inspect these fields from the existing quote payload if present:
+
+```json
+{
+  "property": {
+    "address": "123 Main St, San Diego, CA",
+    "state": "CA",
+    "year_built": 1998,
+    "roof_age": null,
+    "roof_material": null,
+    "occupancy": "owner_occupied"
+  },
+  "applicant": {
+    "prior_claims": 1
+  },
+  "coverage": {
+    "dwelling_limit": 500000,
+    "deductible": 2500
+  }
+}
+```
+
+At minimum, Sprint 1 logic should reason over:
+
+* address/state
+* roof age
+* roof material
+* occupancy
+* year built
+* prior claims
+* basic completeness signals
+
+---
+
+## Domain-specific reasoning rules
+
+### A. Roof review triggers
+
+Sprint 1 should flag `roof_review_required` when:
+
+* `roof_age` is missing
+* `roof_material` is missing
+* `roof_age` exceeds configured threshold
+* property is older and roof data is absent
+* downstream quote decision materially depends on roof condition
+
+Example initial thresholds:
+
+```yaml
+roof_age_review_threshold: 15
+roof_missing_requires_review: true
+```
+
+### B. California wildfire review triggers
+
+Sprint 1 should flag `wildfire_review_required` when:
+
+* property state is `CA`
+* address is in California and hazard review is required for quote progression
+* brush/wildfire question is yes or unknown
+* retrieval/guideline rules require wildfire evidence before automated progression
+
+Example config:
+
+```yaml
+wildfire_states:
+  - CA
+require_wildfire_review_for_ca: true
+```
+
+### C. Submission completeness triggers
+
+Sprint 1 should use `request_missing_information` when critical underwriting data is missing, such as:
+
+* incomplete address
+* missing occupancy
+* missing year built
+* missing prior claims response
+* coverage data insufficient for quote path
+
+### D. Early referral candidate triggers
+
+Sprint 1 should mark `candidate_refer` when:
+
+* California property with wildfire review required and missing roof information
+* multiple critical gaps exist
+* underwriting evidence is insufficient for safe progression
+* existing graph reaches a risk decision but supporting data is incomplete
+
+### E. Early decline candidate triggers
+
+Sprint 1 should only produce a **decline candidate**, not a final automated decline, when:
+
+* strong existing evidence indicates material ineligibility
+* severe hazard/guideline conditions are already known
+* existing system guardrails allow decline-preparation but still require final validation
+
+---
+
+## Sprint 1 reasoning flow
+
+The loop should follow this pattern inside the current codebase:
+
+```text
+1. Read current quote state
+2. Identify underwriting gaps or required reviews
+3. Choose next insurance-aware action
+4. Execute existing node or domain action
+5. Record observation
+6. Continue until:
+   - enough evidence to proceed
+   - refer candidate established
+   - missing info blocks quote
+   - max steps reached
+```
+
+---
+
+## Sprint 1 output additions
+
+Add these optional fields to the existing run state:
+
+```json
+{
+  "domain_flags": {
+    "roof_review_required": true,
+    "wildfire_review_required": true,
+    "guideline_review_required": true
+  },
+  "quote_blockers": [
+    "missing_roof_age",
+    "missing_roof_material"
+  ],
+  "candidate_outcome": "REFER",
+  "candidate_outcome_reason": "California property requires wildfire review and roof data is incomplete"
+}
+```
+
+---
+
+## Sprint 1 trace example
+
+```json
+{
+  "step": 1,
+  "node": "reasoning_controller",
+  "thought": "Property is in California and roof data is incomplete. This submission should not proceed directly to automated quote without hazard and roof review context.",
+  "action": "flag_domain_review",
+  "action_target": "roof_review_required,wildfire_review_required",
+  "observation_summary": "Domain review flags added to run state",
+  "next_plan": "Retrieve California wildfire and roof underwriting guidance",
+  "timestamp": "2026-04-18T12:00:00Z"
+}
+```
+
+---
+
+## Sprint 1 config additions
+
+```yaml
+agentic_reasoning_enabled: true
+max_reasoning_steps: 5
+
+domain_logic:
+  ho3_enabled: true
+  roof_missing_requires_review: true
+  roof_age_review_threshold: 15
+  require_wildfire_review_for_ca: true
+  critical_missing_fields:
+    - address
+    - occupancy
+    - year_built
+    - prior_claims
+```
+
+---
+
+## Sprint 1 implementation changes
+
+### Extend existing graph state
+
+Add:
+
+* `domain_flags`
+* `quote_blockers`
+* `candidate_outcome`
+* `candidate_outcome_reason`
+
+### Extend existing validation/enrichment interpretation
+
+Existing nodes should remain intact, but their outputs should now feed the reasoning controller.
+
+### Add insurance-aware controller
+
+The controller should:
+
+* inspect quote completeness
+* inspect state-level hazard requirements
+* inspect roof-related underwriting triggers
+* decide whether to:
+
+  * continue existing flow
+  * retrieve guidance
+  * request more information
+  * set candidate refer/decline
+
+### Preserve current endpoints
+
+No API breaking changes required.
+
+---
+
+## Sprint 1 acceptance criteria
+
+Sprint 1 is complete when all of the following are true:
+
+1. **California HO3 quote with missing roof data**
+
+   * system flags both `roof_review_required` and `wildfire_review_required`
+   * system does not continue as a clean automated path
+
+2. **Non-California clean quote**
+
+   * system progresses through current flow without unnecessary domain flags
+
+3. **Incomplete submission**
+
+   * system identifies blockers and requests missing information instead of proceeding blindly
+
+4. **Guideline-driven refer candidate**
+
+   * system can set `candidate_outcome = REFER` before final decision when evidence is incomplete but risk is material
+
+5. **Backward compatibility**
+
+   * current deterministic flow still works when feature flag is disabled
+
+---
+
+## Sprint 1 sample JSON — California roof/wildfire case
+
+### Input
+
+```json
+{
+  "quote_id": "Q-CA-1001",
+  "property": {
+    "address": "123 Main St, San Diego, CA",
+    "state": "CA",
+    "year_built": 1998,
+    "roof_age": null,
+    "roof_material": null,
+    "occupancy": "owner_occupied"
+  },
+  "applicant": {
+    "prior_claims": 1
+  },
+  "coverage": {
+    "dwelling_limit": 500000,
+    "deductible": 2500
+  }
+}
+```
+
+### Output state fragment
+
+```json
+{
+  "domain_flags": {
+    "roof_review_required": true,
+    "wildfire_review_required": true,
+    "guideline_review_required": true
+  },
+  "quote_blockers": [
+    "missing_roof_age",
+    "missing_roof_material"
+  ],
+  "candidate_outcome": "REFER",
+  "candidate_outcome_reason": "California property requires wildfire review and roof information is incomplete",
+  "step_count": 2
+}
+```
+
+---
+
+## Sprint 1 sample JSON — clean non-CA case
+
+```json
+{
+  "domain_flags": {
+    "roof_review_required": false,
+    "wildfire_review_required": false,
+    "guideline_review_required": false
+  },
+  "quote_blockers": [],
+  "candidate_outcome": null,
+  "candidate_outcome_reason": null
+}
+```
+
+---
+
+## Why this Sprint 1 is stronger
+
+This version of Sprint 1 already shows:
+
+* insurance-aware reasoning
+* HO3-specific underwriting triggers
+* state-specific hazard handling
+* quote progression safety
+* early refer logic grounded in domain signals
+
+So even before Sprint 2 dynamic tool selection, the repo already looks like a real **insurance underwriting agent**, not just a generic agent framework.
+
+If you want, I can now update the **full GitHub-ready spec file** so this revised Sprint 1 is merged cleanly with Sprints 2–7.

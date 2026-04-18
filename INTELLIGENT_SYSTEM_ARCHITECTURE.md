@@ -1,5 +1,7 @@
 # 🧠 IntelliUnderwrite AI Platform - Intelligent System Architecture
 
+> **⚠️ IMPORTANT: This document is a roadmap and architectural vision. Features described here are planned future enhancements, not current implementations. See the actual codebase for currently implemented features.**
+
 ## 📋 **Executive Summary**
 
 The IntelliUnderwrite AI Platform represents a **paradigm shift** from traditional underwriting systems to an **intelligent, learning enterprise solution**. This architecture combines multiple AI technologies to create a sophisticated system that understands, reasons, and continuously improves underwriting decisions.

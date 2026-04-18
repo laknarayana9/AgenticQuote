@@ -10,7 +10,7 @@ services:
       - ENVIRONMENT=production
       - DATABASE_URL=sqlite:///storage/underwriting.db
       - LOG_LEVEL=info
-      - CORS_ORIGINS=https://yourdomain.com
+      - CORS_ORIGINS=https://example.com
       - REDIS_URL=redis://redis:6379
     volumes:
       - ./storage:/app/storage
@@ -42,7 +42,7 @@ services:
     environment:
       - POSTGRES_DB=underwriting
       - POSTGRES_USER=underwrite_user
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=CHANGE_ME_DB_PASSWORD
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -85,7 +85,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=CHANGE_ME_GRAFANA_PASSWORD
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana:/etc/grafana/provisioning

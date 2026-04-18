@@ -99,13 +99,15 @@ Open your browser to: `http://localhost:8000/static/index.html`
 
 ### Automated Testing
 ```bash
-# Run the test script
-python test_api.py
+# Run core functionality tests
+python test_workflow_success.py
+python test_agentic_workflow.py
+python test_rag_phase1.py
 ```
 
 ### Manual Testing with curl
 ```bash
-# Submit a quote for processing
+# Submit a quote for processing (agentic mode)
 curl -X POST "http://localhost:8000/quote/run" \
   -H "Content-Type: application/json" \
   -d '{
@@ -120,6 +122,36 @@ curl -X POST "http://localhost:8000/quote/run" \
       "foundation_type": "concrete"
     },
     "use_agentic": true
+  }'
+
+# Submit a quote for processing (canonical HO3 schema)
+curl -X POST "http://localhost:8000/quote/ho3" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "submission": {
+      "applicant": {
+        "full_name": "John Doe",
+        "email": "john@example.com"
+      },
+      "risk": {
+        "property_address": "123 Main St, Los Angeles, CA 90210",
+        "occupancy": "owner_occupied_primary",
+        "dwelling_type": "single_family",
+        "year_built": 1985,
+        "roof_age_years": 15,
+        "construction_type": "frame",
+        "stories": 1
+      },
+      "coverage_request": {
+        "coverage_a": 500000,
+        "coverage_b_pct": 10,
+        "coverage_c_pct": 50,
+        "coverage_d_pct": 20,
+        "coverage_e": 300000,
+        "coverage_f": 5000,
+        "deductible": 1000
+      }
+    }
   }'
 ```
 
@@ -238,28 +270,28 @@ curl -X POST http://localhost:8000/quote/run -d '{
 ### **🎯 Intelligence Testing**
 ```bash
 # Run comprehensive AI test suite
-python test_intelligent_system.py
+python test_intelligent_features.py
 
-# Test multi-modal processing
-python test_multi_modal_understanding.py
+# Test agentic workflow
+python test_agentic_workflow.py
 
-# Validate reasoning engine
-python test_advanced_reasoning.py
+# Test LLM integration
+python test_phase3_llm.py
 
-# Check learning capabilities
-python test_continuous_learning.py
+# Test RAG functionality
+python test_rag_phase1.py
 ```
 
 ### **📊 Performance Validation**
 ```bash
-# Load testing for enterprise scale
-python test_enterprise_performance.py
+# Integration testing
+python test_phase2_integration.py
 
-# Security and compliance testing
-python test_security_compliance.py
+# Workflow success validation
+python test_workflow_success.py
 
-# End-to-end system validation
-python test_complete_intelligence.py
+# Simple agentic tests
+python test_simple_agentic.py
 ```
 
 ---
@@ -267,19 +299,9 @@ python test_complete_intelligence.py
 ## 📚 **Documentation**
 
 ### **🏗️ Architecture**
-- [Intelligent System Architecture](INTELLIGENT_SYSTEM_ARCHITECTURE.md)
-- [AI Model Documentation](docs/ai_models.md)
-- [Performance Optimization Guide](docs/performance.md)
-
-### **🔧 Implementation**
-- [Integration Guide](docs/integration.md)
-- [Configuration Manual](docs/configuration.md)
-- [Deployment Guide](docs/deployment.md)
-
-### **📊 Analytics**
-- [Intelligence Metrics](docs/metrics.md)
-- [Performance Monitoring](docs/monitoring.md)
-- [Business Intelligence](docs/business_intelligence.md)
+- [Intelligent System Architecture](INTELLIGENT_SYSTEM_ARCHITECTURE.md) *(Roadmap & Vision)*
+- [Configuration Guide](docs/CONFIGURATION.md)
+- [Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)
 
 ---
 
@@ -325,5 +347,5 @@ The IntelliUnderwrite AI Platform represents a **paradigm shift** from tradition
 
 **🧠 IntelliUnderwrite AI Platform - Intelligent Underwriting, Decisive Insights** 🚀
 For questions or issues, check the audit logs and API documentation.
-cd /Users/sumedhtuttagunta/code/AgenticQuote
+cd ./
 python -m uvicorn app.complete:create_complete_app --reload --host 0.0.0.0 --port 8000
