@@ -690,12 +690,5 @@ erDiagram
     }
 ```
 
----
-
-**These 8 diagrams cover the full system architecture and workflows. Paste any of them directly into GitHub README, Notion, or any Markdown renderer that supports Mermaid — they'll render inline.**
-
----
 
 **Agentic Quote-to-Underwrite - Intelligent Insurance Processing**
-
-For questions or issues, check the audit logs and API documentation.
