@@ -288,6 +288,241 @@ This is a **demonstration project** showcasing agentic AI capabilities in insura
 
 ---
 
+## **📊 System Diagrams**
+
+### **1. System Architecture Overview**
+
+```mermaid
+graph TB
+    Client([Client / Browser]) --> API[FastAPI Layer<br/>app/main.py]
+    API --> Auth[Security / RBAC<br/>security/rbac.py]
+    Auth --> Router{Workflow Router}
+
+    Router -->|use_agentic: false| LG1[Linear Graph<br/>workflows/graph.py]
+    Router -->|use_agentic: true| LG2[Agentic Graph<br/>workflows/agentic_graph.py]
+    Router -->|/quote/ho3| LG3[Phase A Graph<br/>workflows/phase_a_graph.py]
+
+    LG1 & LG2 & LG3 --> Nodes[Workflow Nodes<br/>workflows/nodes.py]
+
+    Nodes --> RAG[RAG Engine<br/>ChromaDB + sentence-transformers]
+    Nodes --> Providers[Data Providers<br/>geocoding · hazard · claims]
+    Nodes --> LLM[LLM Engine<br/>GPT-4 optional]
+
+    Nodes --> State[WorkflowState<br/>Pydantic Model]
+    State --> DB[(SQLite<br/>Run Records)]
+    State --> OTel[OpenTelemetry<br/>Phoenix / Arize]
+
+    API --> MCP[MCP Server<br/>mcp_server.py]
+    MCP -.->|AI assistants| Tools[Underwriting Tools]
+
+    style RAG fill:#4a90d9,color:#fff
+    style LG2 fill:#7b68ee,color:#fff
+    style OTel fill:#f0a500,color:#fff
+```
+
+### **2. Linear Underwriting Workflow**
+
+```mermaid
+flowchart LR
+    Start([Submission]) --> V[Validate\nsubmission]
+    V -->|missing fields| D
+    V -->|valid| E[Enrich\naddress · hazard · property]
+    E --> R[Retrieve\nRAG guidelines]
+    R --> A[Assess\neligibility · triggers]
+    A --> CG{Citation\nGuardrail}
+    CG -->|high severity\nno citation| D
+    CG -->|citations OK| Rate[Rate\npremium]
+    Rate --> D[Decide\nACCEPT · REFER · DECLINE]
+    D --> End([DecisionPacket\n+ audit trail])
+
+    style CG fill:#e74c3c,color:#fff
+    style D fill:#2ecc71,color:#fff
+    style R fill:#4a90d9,color:#fff
+```
+
+### **3. Agentic HITL Workflow**
+
+```mermaid
+flowchart TD
+    Sub([Submission]) --> V[Validate]
+
+    V -->|missing_info populated| HM[Handle Missing Info]
+    V -->|all fields present| E[Enrich]
+
+    HM --> End1([Return\nstatus: waiting_for_info\nrequired_questions: ...])
+
+    E --> RG[Retrieve Guidelines\nRAG]
+    RG --> UA[UW Assess]
+    UA --> CG{Citation\nGuardrail}
+
+    CG -->|triggered — no citation\nfor high severity| D
+    CG -->|passed| Rate[Rate Policy]
+
+    Rate --> D[Make Decision]
+    D --> End2([Return\nstatus: completed\nACCEPT · REFER · DECLINE])
+
+    Resubmit([Resubmit with\nadditional_answers]) -.->|fills missing fields| V
+
+    style End1 fill:#f39c12,color:#fff
+    style End2 fill:#2ecc71,color:#fff
+    style CG fill:#e74c3c,color:#fff
+    style HM fill:#f39c12,color:#fff
+```
+
+### **4. RAG Pipeline**
+
+```mermaid
+flowchart LR
+    subgraph Ingestion ["Ingestion (startup)"]
+        direction TB
+        Docs[5 Guideline Docs\n.md files] --> Chunk[Header-based\nChunker]
+        Chunk --> Meta[Extract Metadata\nrule_strength · section]
+        Meta --> Embed1[Embed\nall-MiniLM-L6-v2]
+        Embed1 --> Store[(ChromaDB\n40 chunks)]
+    end
+
+    subgraph Query ["Query (per request)"]
+        direction TB
+        Enrich[Enrichment Result\naddress · hazard scores] --> QStr[Build Query String]
+        QStr --> Embed2[Embed\nall-MiniLM-L6-v2]
+        Embed2 --> Search[Cosine Similarity\nTop-K Search]
+        Store --> Search
+        Search --> Chunks[Retrieved Chunks\nwith relevance scores]
+        Chunks --> Guard[Citation Guardrail\ncheck coverage]
+        Guard --> Citations[Citations in\nDecisionPacket]
+    end
+
+    style Store fill:#4a90d9,color:#fff
+    style Guard fill:#e74c3c,color:#fff
+```
+
+### **5. 7-Agent Contract Architecture**
+
+```mermaid
+flowchart TD
+    Input([HO3Submission]) --> A1
+
+    A1[IntakeNormalizer\nvalidate · canonicalize schema]
+    A2[PlannerRouter\ndecide enrichment tools]
+    A3[EnrichmentAgent\ngeocode · hazard · property · claims]
+    A4[RetrievalAgent\nChromaDB semantic search]
+    A5[UnderwritingAssessor\neligibility rules · triggers]
+    A6[VerifierGuardrail\ncitation coverage check]
+    A7[DecisionPackager\nassemble final packet]
+
+    A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7
+
+    A6 -->|missing citation\nfor high severity| Override[Force REFER\nskip rating]
+    Override --> A7
+
+    A7 --> Out([DecisionPacket\ndecision · citations\npremium · next_steps · audit])
+
+    style A6 fill:#e74c3c,color:#fff
+    style A4 fill:#4a90d9,color:#fff
+    style Out fill:#2ecc71,color:#fff
+```
+
+### **6. Agent Communication (Threading)**
+
+```mermaid
+sequenceDiagram
+    participant S as Sender Agent
+    participant AC as AgentCommunication
+    participant Q as Queue[Recipient]
+    participant W as Worker Thread
+    participant R as Recipient Agent
+
+    S->>AC: send_request(content)
+    AC->>AC: create correlation_id
+    AC->>AC: register response handler
+    AC->>Q: put(AgentMessage)
+    Note over S: wait on threading.Event (timeout=5s)
+
+    W->>Q: get_nowait()
+    W->>R: dispatch to handler
+    R->>AC: send_message(RESPONSE, correlation_id)
+    AC->>AC: fire response handler
+    AC-->>S: event.set() → return response
+
+    Note over S,R: Falls back gracefully if timeout
+```
+
+### **7. End-to-End HITL Sequence**
+
+```mermaid
+sequenceDiagram
+    actor UW as Underwriter
+    participant API as FastAPI
+    participant WF as Agentic Graph
+    participant DB as SQLite
+    participant RAG as ChromaDB
+
+    UW->>API: POST /quote/run (incomplete submission)
+    API->>WF: run_agentic_underwriting_workflow()
+    WF->>WF: validate → missing_info = [roof_type, square_footage]
+    WF->>WF: handle_missing_info → END
+    WF-->>API: WorkflowState {missing_info: [...]}
+    API->>DB: store run record
+    API-->>UW: 200 {status: waiting_for_info, required_questions: [...]}
+
+    UW->>API: POST /quote/run (with additional_answers)
+    API->>WF: run_agentic_underwriting_workflow(additional_answers)
+    WF->>WF: validate → missing_info = []
+    WF->>WF: enrich → retrieve → assess
+    WF->>RAG: semantic search guidelines
+    RAG-->>WF: top-k chunks with citations
+    WF->>WF: citation guardrail → passed
+    WF->>WF: rate → decide → ACCEPT
+    WF-->>API: WorkflowState {decision: ACCEPT, citations: [...]}
+    API->>DB: store run record
+    API-->>UW: 200 {status: completed, decision: ACCEPT, premium: {...}}
+```
+
+### **8. Data Model**
+
+```mermaid
+erDiagram
+    QuoteSubmission ||--|| WorkflowState : "drives"
+    WorkflowState ||--o| EnrichmentResult : has
+    WorkflowState ||--o| UWAssessment : has
+    WorkflowState ||--o| Decision : has
+    WorkflowState ||--o| PremiumBreakdown : has
+    WorkflowState ||--o{ RetrievalChunk : "retrieved_guidelines"}
+    WorkflowState ||--o{ ToolCall : "audit trail"
+
+    Decision ||--o{ UWQuestion : "required_questions"}
+    UWAssessment ||--o{ RiskTrigger : triggers
+
+    RunRecord ||--|| WorkflowState : stores
+    RunRecord {
+        string run_id PK
+        datetime created_at
+        string status
+        json node_outputs
+    }
+
+    Decision {
+        enum decision "ACCEPT|REFER|DECLINE"
+        float confidence
+        string rationale
+        list citations
+        list next_steps
+    }
+
+    PremiumBreakdown {
+        float base_premium
+        float hazard_surcharge
+        float total_premium
+        json rating_factors
+    }
+```
+
+---
+
+**These 8 diagrams cover the full system architecture and workflows. Paste any of them directly into GitHub README, Notion, or any Markdown renderer that supports Mermaid — they'll render inline.**
+
+---
+
 **Agentic Quote-to-Underwrite - Intelligent Insurance Processing**
 
 For questions or issues, check the audit logs and API documentation.
