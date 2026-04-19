@@ -617,30 +617,40 @@ class TestBusinessProcessIntegration(unittest.TestCase):
     def test_error_recovery_workflow(self):
         """Test error recovery in workflow."""
         # Simulate workflow with error
-        workflow_state = WorkflowState(
-            current_node="risk_assessment",
-            completed_nodes=[],
-            pending_nodes=["risk_assessment", "rating", "decision"],
-            error_count=1
+        from models.schemas import QuoteSubmission
+        
+        quote_submission = QuoteSubmission(
+            applicant_name="John Doe",
+            address="123 Main St",
+            property_type="single_family",
+            coverage_amount=250000.0
         )
         
-        # Error recovery logic
-        if workflow_state.error_count < 3:
+        workflow_state = WorkflowState(
+            quote_submission=quote_submission,
+            current_node="risk_assessment",
+            status="processing"
+        )
+        
+        # Error recovery logic - simulate based on current node status
+        if workflow_state.current_node == "risk_assessment" and workflow_state.status == "processing":
             # Retry the failed node
             workflow_state.current_node = "risk_assessment"
             recovery_action = "retry"
         else:
             # Escalate to human review
             workflow_state.current_node = "human_review_required"
+            workflow_state.status = "pending_review"
             recovery_action = "escalate"
         
         self.assertEqual(recovery_action, "retry")
         self.assertEqual(workflow_state.current_node, "risk_assessment")
+        self.assertEqual(workflow_state.status, "processing")
         
-        # Test escalation after multiple errors
-        workflow_state.error_count = 3
+        # Test escalation by changing status
+        workflow_state.status = "pending_review"
         
-        if workflow_state.error_count < 3:
+        if workflow_state.status == "processing":
             recovery_action = "retry"
         else:
             workflow_state.current_node = "human_review_required"

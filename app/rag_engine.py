@@ -23,8 +23,9 @@ import numpy as np
 try:
     from sentence_transformers import SentenceTransformer
     EMBEDDINGS_AVAILABLE = True
-except ImportError:
+except Exception as e:
     EMBEDDINGS_AVAILABLE = False
+    print(f"sentence-transformers load failed: {e}")
     print("Warning: sentence-transformers not available, using mock embeddings")
 
 from models.schemas import RetrievalChunk
@@ -99,12 +100,17 @@ class RAGEngine:
         # Initialize embeddings
         if EMBEDDINGS_AVAILABLE:
             self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-            self.embedding_dim = self.embedding_model.get_sentence_embedding_dimension()
-            logger.info("✅ SentenceTransformer embeddings initialized")
+            self.embedding_dim = self.embedding_model.get_embedding_dimension()
+            logger.info("SentenceTransformer embeddings initialized")
         else:
-            logger.warning("⚠️ Using mock embeddings - sentence-transformers not available")
+            logger.warning("Using mock embeddings - sentence-transformers not available")
             self.embedding_model = None
             self.embedding_dim = 384  # Mock dimension
+        
+    @property
+    def embeddings_available(self) -> bool:
+        """Check if real embeddings are available"""
+        return EMBEDDINGS_AVAILABLE and self.embedding_model is not None
             
         # Chunking parameters
         self.chunk_size_tokens = 600  # Target tokens per chunk

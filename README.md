@@ -100,8 +100,8 @@ Open your browser to: `http://localhost:8000/static/index.html`
 ### Automated Testing
 ```bash
 # Run core functionality tests
-python test_workflow_success.py
-python test_agentic_workflow.py
+python -m pytest tests/test_phase_a_scenarios.py -v
+python -m pytest tests/test_workflows.py -v
 python test_rag_phase1.py
 ```
 
@@ -124,33 +124,34 @@ curl -X POST "http://localhost:8000/quote/run" \
     "use_agentic": true
   }'
 
-# Submit a quote for processing (canonical HO3 schema)
-curl -X POST "http://localhost:8000/quote/ho3" \
+# Submit a quote for processing with missing info to trigger HITL
+curl -X POST "http://localhost:8000/quote/run" \
   -H "Content-Type: application/json" \
   -d '{
     "submission": {
-      "applicant": {
-        "full_name": "John Doe",
-        "email": "john@example.com"
-      },
-      "risk": {
-        "property_address": "123 Main St, Los Angeles, CA 90210",
-        "occupancy": "owner_occupied_primary",
-        "dwelling_type": "single_family",
-        "year_built": 1985,
-        "roof_age_years": 15,
-        "construction_type": "frame",
-        "stories": 1
-      },
-      "coverage_request": {
-        "coverage_a": 500000,
-        "coverage_b_pct": 10,
-        "coverage_c_pct": 50,
-        "coverage_d_pct": 20,
-        "coverage_e": 300000,
-        "coverage_f": 5000,
-        "deductible": 1000
-      }
+      "applicant_name": "John Doe",
+      "address": "123 Main St, Los Angeles, CA 90210",
+      "property_type": "single_family",
+      "coverage_amount": 500000
+    },
+    "use_agentic": true
+  }'
+
+# Submit additional information to complete HITL workflow
+curl -X POST "http://localhost:8000/quote/run" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "submission": {
+      "applicant_name": "John Doe",
+      "address": "123 Main St, Los Angeles, CA 90210",
+      "property_type": "single_family",
+      "coverage_amount": 500000
+    },
+    "use_agentic": true,
+    "additional_answers": {
+      "roof_age_years": "15",
+      "construction_type": "frame",
+      "occupancy_type": "owner_occupied_primary"
     }
   }'
 ```
@@ -249,103 +250,46 @@ curl -X POST http://localhost:8000/quote/run -d '{
 
 ---
 
-## 📈 **Performance & Scalability**
+##  **Documentation**
 
-### **⚡ Performance Optimization**
-- **Intelligent Caching**: Multi-level with AI-driven invalidation
-- **Parallel Processing**: Distributed processing architecture
-- **Resource Management**: Dynamic allocation
-- **Latency Optimization**: Sub-second response times
-
-### **📊 Scalability Design**
-- **Horizontal Scaling**: Auto-scaling for load management
-- **Microservices**: Modular service architecture
-- **Load Balancing**: Intelligent traffic distribution
-- **High Availability**: Disaster recovery and failover
-
----
-
-## 🧪 **Testing & Validation**
-
-### **🎯 Intelligence Testing**
-```bash
-# Run comprehensive AI test suite
-python test_intelligent_features.py
-
-# Test agentic workflow
-python test_agentic_workflow.py
-
-# Test LLM integration
-python test_phase3_llm.py
-
-# Test RAG functionality
-python test_rag_phase1.py
-```
-
-### **📊 Performance Validation**
-```bash
-# Integration testing
-python test_phase2_integration.py
-
-# Workflow success validation
-python test_workflow_success.py
-
-# Simple agentic tests
-python test_simple_agentic.py
-```
-
----
-
-## 📚 **Documentation**
-
-### **🏗️ Architecture**
+### **Architecture**
 - [Intelligent System Architecture](INTELLIGENT_SYSTEM_ARCHITECTURE.md) *(Roadmap & Vision)*
 - [Configuration Guide](docs/CONFIGURATION.md)
 - [Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)
 
 ---
 
-## 🤝 **Enterprise Support**
+##  **Technical Implementation**
 
-### **🎯 Professional Services**
-- **AI Implementation**: Expert deployment and configuration
-- **Custom Training**: Domain-specific model fine-tuning
-- **Integration Support**: Enterprise system integration
-- **Performance Optimization**: Scalability and efficiency tuning
+### **Core Technologies**
+- **LangGraph**: Workflow orchestration and agent coordination
+- **FastAPI**: RESTful API framework
+- **ChromaDB**: Vector database for RAG functionality
+- **SQLite**: Local storage for audit trails
+- **Sentence Transformers**: Semantic embeddings for document retrieval
 
-### **📞 Technical Support**
-- **24/7 Enterprise Support**: Round-the-clock assistance
-- **AI Expertise**: Specialized AI engineering support
-- **SLA Guarantee**: 99.9% uptime commitment
-- **Continuous Updates**: Regular AI capability enhancements
-
----
-
-## � **Future Intelligence Roadmap**
-
-### **🔮 Advanced AI Capabilities**
-- **Predictive Analytics**: Advanced risk prediction models
-- **Prescriptive Insights**: Actionable recommendation engine
-- **Autonomous Decisions**: Fully automated standard processing
-- **Strategic Intelligence**: Portfolio-level insights
-
-### **🌐 Ecosystem Integration**
-- **Industry Collaboration**: Shared intelligence networks
-- **Regulatory Intelligence**: Proactive compliance management
-- **Market Intelligence**: Real-time market awareness
-- **Innovation Pipeline**: Continuous AI evolution
+### **Key Components**
+- **7 Specialized Agents**: Each handling specific underwriting tasks
+- **RAG Engine**: Evidence-based decision support
+- **HITL Workflow**: Human-in-the-loop for complex cases
+- **Citation Guardrail**: Ensures evidence-based decisions
+- **Audit Trail**: Complete decision traceability
 
 ---
 
-## 🎉 **Transform Underwriting with AI**
+##  **Current Status**
 
-The IntelliUnderwrite AI Platform represents a **paradigm shift** from traditional underwriting to **intelligent automation**. By combining **advanced AI capabilities** with **enterprise-grade reliability**, we're creating the future of underwriting.
+This is a **demonstration project** showcasing agentic AI capabilities in insurance underwriting. The system demonstrates:
 
-**This isn't just software—it's an intelligent partner that transforms how organizations approach risk assessment and decision making.**
+- **Real RAG Integration**: Semantic search over underwriting guidelines
+- **HITL Workflows**: Pause/resume for missing information
+- **Evidence-Based Decisions**: All decisions backed by citations
+- **Comprehensive Testing**: Full test suite for validation
+
+**Note**: This is a proof-of-concept for AI engineering interviews and technical demonstrations.
 
 ---
 
-**🧠 IntelliUnderwrite AI Platform - Intelligent Underwriting, Decisive Insights** 🚀
+**Agentic Quote-to-Underwrite - Intelligent Insurance Processing**
+
 For questions or issues, check the audit logs and API documentation.
-cd ./
-python -m uvicorn app.complete:create_complete_app --reload --host 0.0.0.0 --port 8000

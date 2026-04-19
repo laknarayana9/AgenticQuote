@@ -108,7 +108,7 @@ def store_run_record(workflow_state: WorkflowState, status: str = "completed", e
             "tool_calls": [call.dict() for call in workflow_state.tool_calls if call.tool_name == "underwriting_assessment"]
         },
         "rating": {
-            "premium": workflow_state.premium_breakdown,
+            "premium": workflow_state.premium_breakdown.model_dump() if workflow_state.premium_breakdown else None,
             "tool_calls": [call.dict() for call in workflow_state.tool_calls if call.tool_name == "rating_calculation"]
         },
         "decision": {
@@ -140,19 +140,19 @@ async def run_quote_processing(request: QuoteRunRequest):
     try:
         # Choose workflow based on agentic flag
         if request.use_agentic:
-            workflow_state = run_agentic_underwriting_workflow(
-                request.submission.dict(), 
+            workflow_state = await run_agentic_underwriting_workflow(
+                request.submission,
                 request.additional_answers
             )
         else:
-            workflow_state = run_underwriting_workflow(request.submission.dict())
+            workflow_state = await run_underwriting_workflow(request.submission)
         
         # Store the run record
         run_id = store_run_record(workflow_state)
         
         # Prepare response
         decision_dict = workflow_state.decision.dict() if workflow_state.decision else None
-        premium_dict = workflow_state.premium_breakdown if hasattr(workflow_state, 'premium_breakdown') else None
+        premium_dict = workflow_state.premium_breakdown.model_dump() if workflow_state.premium_breakdown else None
         citations = workflow_state.uw_assessment.citations if workflow_state.uw_assessment else []
         required_questions = [q.dict() for q in workflow_state.decision.required_questions] if workflow_state.decision and workflow_state.decision.required_questions else []
         
@@ -224,7 +224,7 @@ async def run_ho3_quote_processing(request: HO3RunRequest):
         else:
             # Fallback to legacy decision format
             decision_dict = workflow_state.decision.dict() if workflow_state.decision else None
-            premium_dict = workflow_state.premium_breakdown if hasattr(workflow_state, 'premium_breakdown') else None
+            premium_dict = workflow_state.premium_breakdown.model_dump() if workflow_state.premium_breakdown else None
             required_questions = []
             message = "Processing complete"
         

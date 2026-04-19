@@ -100,18 +100,22 @@ def create_agentic_underwriting_graph() -> StateGraph:
     return workflow
 
 
-def run_agentic_underwriting_workflow(submission_data: Dict[str, Any], 
+async def run_agentic_underwriting_workflow(submission_data,
                                     additional_answers: Dict[str, Any] = None) -> WorkflowState:
     """
     Run agentic underwriting workflow with given submission data.
     """
+    from models.schemas import QuoteSubmission
+
     # Create graph
     graph = create_agentic_underwriting_graph()
     compiled_graph = graph.compile()
-    
-    # Create initial state
-    from models.schemas import QuoteSubmission
-    submission = QuoteSubmission(**submission_data)
+
+    # Accept either a QuoteSubmission object or a plain dict
+    if isinstance(submission_data, QuoteSubmission):
+        submission = submission_data
+    else:
+        submission = QuoteSubmission(**submission_data)
     
     initial_state = WorkflowState(
         quote_submission=submission,

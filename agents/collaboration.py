@@ -5,9 +5,13 @@ Enables agent-to-agent communication protocols for multi-agent workflows.
 
 import os
 import logging
+import threading
+import queue
+import time
 from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -44,35 +48,75 @@ class AgentMessage:
 
 class AgentCommunication:
     """
-    Manages agent-to-agent communication.
+    Manages agent-to-agent communication with real threading.
     
-    Handles message passing, routing, and protocol enforcement.
+    Handles message passing, routing, and protocol enforcement using
+    ThreadPoolExecutor and thread-safe message queues.
     """
     
     def __init__(self):
-        """Initialize agent communication system."""
-        self.enabled = os.getenv("AGENT_COLLABORATION_ENABLED", "false").lower() == "true"
+        """Initialize agent communication system with threading."""
+        self.enabled = os.getenv("AGENT_COLLABORATION_ENABLED", "true").lower() == "true"
         
-        # Message queues for each agent
+        # Thread-safe message queues for each agent
         self.message_queues = {}
+        self.queue_lock = threading.Lock()
         
         # Message handlers
         self.handlers = {}
+        self.handlers_lock = threading.Lock()
         
         # Message history for debugging
         self.message_history = []
+        self.history_lock = threading.Lock()
         
-        logger.info(f"Agent communication system initialized (enabled={self.enabled})")
+        # Thread pool for message processing
+        self.executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix="AgentComm")
+        
+        # Event for shutdown
+        self.shutdown_event = threading.Event()
+        
+        # Message processing threads
+        self.processing_threads = {}
+        
+        logger.info(f"Agent communication system initialized with threading (enabled={self.enabled})")
     
     def register_agent(self, agent_id: str):
         """
-        Register an agent for communication.
+        Register an agent for communication with thread-safe queue.
         
         Args:
             agent_id: Unique agent identifier
         """
-        self.message_queues[agent_id] = []
-        logger.debug(f"Registered agent {agent_id} for communication")
+        with self.queue_lock:
+            if agent_id not in self.message_queues:
+                self.message_queues[agent_id] = queue.Queue()
+                # Start a processing thread for this agent
+                self._start_agent_processor(agent_id)
+                logger.debug(f"Registered agent {agent_id} for communication with thread-safe queue")
+    
+    def _start_agent_processor(self, agent_id: str):
+        """Start a thread to process messages for an agent."""
+        def process_messages():
+            while not self.shutdown_event.is_set():
+                try:
+                    msg_queue = self.message_queues[agent_id]
+                    message = msg_queue.get(timeout=1.0)  # Wait 1 second for message
+                    
+                    # Process the message
+                    self._process_message(message)
+                    msg_queue.task_done()
+                    
+                except queue.Empty:
+                    continue  # Timeout, continue waiting
+                except Exception as e:
+                    logger.error(f"Error processing message for {agent_id}: {e}")
+        
+        thread = threading.Thread(target=process_messages, name=f"AgentProcessor-{agent_id}")
+        thread.daemon = True
+        thread.start()
+        self.processing_threads[agent_id] = thread
+        logger.debug(f"Started message processor thread for agent {agent_id}")
     
     def register_handler(
         self,
@@ -101,7 +145,7 @@ class AgentCommunication:
         correlation_id: Optional[str] = None
     ) -> str:
         """
-        Send a message from one agent to another.
+        Send a message from one agent to another using threading.
         
         Args:
             sender: Sender agent ID
@@ -124,21 +168,49 @@ class AgentCommunication:
             correlation_id=correlation_id
         )
         
-        # Add to recipient's queue
+        # Ensure recipient is registered
         if recipient not in self.message_queues:
             self.register_agent(recipient)
         
-        self.message_queues[recipient].append(message)
+        # Add to thread-safe queue
+        try:
+            self.message_queues[recipient].put(message, timeout=5.0)
+            
+            # Add to history thread-safely
+            with self.history_lock:
+                self.message_history.append(message)
+            
+            logger.debug(f"Message sent from {sender} to {recipient}: {message_type}")
+            return message.message_id
+            
+        except queue.Full:
+            logger.error(f"Message queue full for {recipient}, dropping message")
+            return None
+        except Exception as e:
+            logger.error(f"Error sending message from {sender} to {recipient}: {e}")
+            return None
+    
+    def _process_message(self, message: AgentMessage):
+        """Process a message in a separate thread."""
+        handler_key = f"{message.recipient}:{message.message_type}"
         
-        # Add to history
-        self.message_history.append(message)
+        with self.handlers_lock:
+            handler = self.handlers.get(handler_key)
         
-        logger.debug(f"Message sent from {sender} to {recipient}: {message_type}")
-        return message.message_id
+        if handler:
+            try:
+                # Execute handler in thread pool
+                future = self.executor.submit(handler, message)
+                # Don't wait for result to avoid blocking
+                logger.debug(f"Submitted message {message.message_id} for processing")
+            except Exception as e:
+                logger.error(f"Error submitting message for processing: {e}")
+        else:
+            logger.warning(f"No handler found for {handler_key}")
     
     def receive_messages(self, agent_id: str) -> List[AgentMessage]:
         """
-        Receive messages for an agent.
+        Receive messages for an agent (non-blocking).
         
         Args:
             agent_id: Agent ID
@@ -149,12 +221,54 @@ class AgentCommunication:
         if not self.enabled:
             return []
         
-        if agent_id not in self.message_queues:
-            return []
+        messages = []
+        if agent_id in self.message_queues:
+            try:
+                # Get all available messages without blocking
+                while True:
+                    message = self.message_queues[agent_id].get_nowait()
+                    messages.append(message)
+            except queue.Empty:
+                pass  # No more messages
         
-        messages = self.message_queues[agent_id]
-        self.message_queues[agent_id] = []
         return messages
+    
+    def shutdown(self):
+        """Shutdown the agent communication system gracefully."""
+        logger.info("Shutting down agent communication system...")
+        
+        # Signal shutdown
+        self.shutdown_event.set()
+        
+        # Wait for processing threads to finish
+        for agent_id, thread in self.processing_threads.items():
+            thread.join(timeout=2.0)
+            if thread.is_alive():
+                logger.warning(f"Thread for agent {agent_id} did not shutdown gracefully")
+        
+        # Shutdown thread pool
+        self.executor.shutdown(wait=True, timeout=5.0)
+        
+        logger.info("Agent communication system shutdown complete")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get communication system statistics."""
+        with self.queue_lock:
+            queue_sizes = {
+                agent_id: queue.qsize() 
+                for agent_id, queue in self.message_queues.items()
+            }
+        
+        with self.history_lock:
+            total_messages = len(self.message_history)
+        
+        return {
+            "enabled": self.enabled,
+            "registered_agents": list(self.message_queues.keys()),
+            "queue_sizes": queue_sizes,
+            "total_messages": total_messages,
+            "active_threads": len([t for t in self.processing_threads.values() if t.is_alive()])
+        }
     
     def send_request(
         self,
