@@ -253,9 +253,7 @@ curl -X POST http://localhost:8000/quote/run -d '{
 ##  **Documentation**
 
 ### **Architecture**
-- [Intelligent System Architecture](INTELLIGENT_SYSTEM_ARCHITECTURE.md) *(Roadmap & Vision)*
-- [Configuration Guide](docs/CONFIGURATION.md)
-- [Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)
+- [System Architecture](INTELLIGENT_SYSTEM_ARCHITECTURE.md) *(Actual Implementation)*
 
 ---
 
