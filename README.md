@@ -657,37 +657,36 @@ sequenceDiagram
 ```mermaid
 erDiagram
     QuoteSubmission ||--|| WorkflowState : "drives"
-    WorkflowState ||--o| EnrichmentResult : has
-    WorkflowState ||--o| UWAssessment : has
-    WorkflowState ||--o| Decision : has
-    WorkflowState ||--o| PremiumBreakdown : has
-    WorkflowState ||--o{ RetrievalChunk : "retrieved_guidelines"}
-    WorkflowState ||--o{ ToolCall : "audit trail"}
+    WorkflowState ||--o| EnrichmentResult : "has"
+    WorkflowState ||--o| UWAssessment : "has"
+    WorkflowState ||--o| Decision : "has"
+    WorkflowState ||--o| PremiumBreakdown : "has"
+    WorkflowState ||--o{ RetrievalChunk : "retrieved_guidelines"
+    WorkflowState ||--o{ ToolCall : "audit_trail"
+    Decision ||--o{ UWQuestion : "required_questions"
+    UWAssessment ||--o{ RiskTrigger : "triggers"
+    RunRecord ||--|| WorkflowState : "stores"
 
-    Decision ||--o{ UWQuestion : "required_questions"}
-    UWAssessment ||--o{ RiskTrigger : triggers}
-
-    RunRecord ||--|| WorkflowState : stores
     RunRecord {
         string run_id PK
-        datetime created_at
         string status
-        json node_outputs
+        datetime created_at
+        string node_outputs
     }
 
     Decision {
-        enum decision "ACCEPT|REFER|DECLINE"
+        string decision
         float confidence
         string rationale
-        list citations
-        list next_steps
+        string citations
+        string next_steps
     }
 
     PremiumBreakdown {
         float base_premium
         float hazard_surcharge
         float total_premium
-        json rating_factors
+        string rating_factors
     }
 ```
 
