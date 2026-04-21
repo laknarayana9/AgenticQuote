@@ -422,17 +422,24 @@ class ErrorAnalyzer:
         
         print(f"Error analysis saved to {filepath}")
     
-    def run_continuous_analysis(self, interval_minutes: int = 60):
+    def run_continuous_analysis(self, interval_minutes: int = 60, max_error_retries: int = 5):
         """
-        Run continuous error analysis loop.
+        Run continuous error analysis loop with safety limits.
+        
+        Args:
+            interval_minutes: Minutes between analysis runs
+            max_error_retries: Maximum consecutive errors before stopping
         """
         import time
         
-        print(f"Starting continuous error analysis (interval: {interval_minutes} minutes)")
+        print(f"Starting continuous error analysis (interval: {interval_minutes} minutes, max error retries: {max_error_retries})")
+        
+        consecutive_errors = 0
         
         while True:
             try:
                 analysis = self.analyze_errors()
+                consecutive_errors = 0  # Reset error count on success
                 
                 print(f"\n=== Error Analysis {analysis.timestamp} ===")
                 print(f"Total Errors: {analysis.total_errors}")
@@ -453,8 +460,17 @@ class ErrorAnalyzer:
                 print("\nError analysis stopped by user")
                 break
             except Exception as e:
-                print(f"Analysis error: {e}")
-                time.sleep(60)  # Wait before retry
+                consecutive_errors += 1
+                print(f"Analysis error: {e} (consecutive errors: {consecutive_errors}/{max_error_retries})")
+                
+                if consecutive_errors >= max_error_retries:
+                    print(f"Max error retries ({max_error_retries}) reached, stopping analysis")
+                    break
+                
+                # Exponential backoff with maximum delay of 5 minutes
+                backoff_time = min(60 * (2 ** (consecutive_errors - 1)), 300)
+                print(f"Waiting {backoff_time} seconds before retry...")
+                time.sleep(backoff_time)
 
 
 def main():
