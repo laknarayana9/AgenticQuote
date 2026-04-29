@@ -230,4 +230,4 @@ else:
 - Retry logic for failed processing
 - Graceful degradation patterns
 
-This message queue implementation provides enterprise-grade asynchronous processing capabilities while maintaining the existing synchronous processing option for backward compatibility.
+This message queue implementation provides designed for asynchronous processing capabilities while maintaining the existing synchronous processing option for backward compatibility.

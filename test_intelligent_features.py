@@ -401,7 +401,7 @@ def main():
     
     if passed == total:
         print("🎉 ALL INTELLIGENT FEATURES WORKING!")
-        print("🚀 Ready for production deployment!")
+        print("🚀 System ready for deployment!")
     else:
         print("⚠️ Some features need attention")
         print("🔧 Check the failed tests above")

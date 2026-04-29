@@ -15,7 +15,7 @@
 
 ---
 
-A production-style, real-time underwriting system that combines deterministic rules with LLM-based reasoning to deliver **explainable Accept / Refer / Decline decisions**.
+A target architecture for underwriting systems that combines deterministic rules with LLM-based reasoning to deliver **explainable Accept / Refer / Decline decisions**.
 
 Designed for **low-latency, high-throughput workflows** with full auditability and failure resilience.
 
@@ -402,7 +402,7 @@ The LLM operates as an **advisory system** that provides recommendations, not au
 
 ### Performance Targets
 - **Target Latency**: 200ms p95 for end-to-end underwriting decision
-- **Throughput**: 5,000 requests/second sustained load
+- **Throughput**: Not yet validated at scale
 - **External API Budget**: 300ms average latency for all external calls
 - **LLM Budget**: 100ms maximum LLM response time or automatic fallback
 
@@ -419,7 +419,7 @@ The LLM operates as an **advisory system** that provides recommendations, not au
 - **Data Completeness**: 95% required fields populated
 
 ### Service Level Objectives
-- **Availability**: 99.9% uptime (8.76 hours downtime/month)
+- **Availability**: Local testing shows basic functionality
 - **Error Rate**: <0.1% for automated decisions
 - **Recovery Time**: <30 seconds for circuit breaker recovery
 - **Data Freshness**: <5 minutes for cached external data

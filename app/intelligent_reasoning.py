@@ -51,7 +51,7 @@ class IntelligentDecision:
 
 class AdvancedReasoningEngine:
     """
-    Enterprise-grade reasoning engine for underwriting decisions
+    Designed for reasoning engine for underwriting decisions
 
     This engine goes beyond simple classification to provide
     sophisticated reasoning with explainable AI capabilities

@@ -317,4 +317,4 @@ All existing API endpoints work exactly the same, but now with Redis persistence
 - **Backup**: Simple data persistence
 - **High Availability**: Master-replica configuration
 
-The Redis message queue provides enterprise-grade reliability while maintaining the simple, clean interface of the original in-memory implementation.
+The Redis message queue provides designed for reliability while maintaining the simple, clean interface of the original in-memory implementation.

@@ -283,7 +283,7 @@ def run_comprehensive_test():
     if overall_success:
         print("\n" + "!" * 80)
         print("ALL AGENTIC CAPABILITIES WORKING CORRECTLY!")
-        print("Ready for production demonstrations!")
+        print("System ready for demonstrations!")
         print("!" * 80)
     else:
         print("\n" + "x" * 80)

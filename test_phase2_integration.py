@@ -205,7 +205,7 @@ async def test_phase2_integration():
         print("✅ Evidence Display Logic: Valid")
         
         print("\n🚀 Phase 2 Implementation Status: COMPLETE")
-        print("🎯 Ready for production testing with evidence-first underwriting!")
+        print("🎯 Evidence-first underwriting functional!")
         
         return True
         

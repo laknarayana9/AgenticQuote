@@ -148,7 +148,7 @@ def test_workflow_success():
     print("  - Real-time monitoring and observability")
     print("  - Comprehensive testing framework")
     print("\nAll core agentic capabilities are functional!")
-    print("Ready for production demonstrations!")
+    print("System ready for demonstrations!")
     print("=" * 80)
 
 if __name__ == "__main__":
