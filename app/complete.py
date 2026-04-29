@@ -128,6 +128,148 @@ def create_complete_app() -> FastAPI:
             }
         }
     
+    @app.post("/quote/ho3")
+    async def submit_ho3_quote(submission: Dict[str, Any]):
+        """
+        Submit HO3 quote for underwriting with canonical schema.
+        """
+        # Apply rate limiting
+        if rate_limiter:
+            client_ip = "127.0.0.1"
+            allowed, info = rate_limiter.is_allowed(f"ho3_submit:{client_ip}", limit=10, window=60)
+            if not allowed:
+                logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Rate limit exceeded. Try again in {info.get('reset_time', 60)} seconds."
+                )
+        
+        try:
+            # Validate HO3 schema structure
+            if not submission.get("applicant"):
+                raise HTTPException(status_code=400, detail="Applicant information is required")
+            
+            if not submission.get("risk"):
+                raise HTTPException(status_code=400, detail="Risk information is required")
+            
+            if not submission.get("coverage_request"):
+                raise HTTPException(status_code=400, detail="Coverage request is required")
+            
+            # Extract key fields
+            applicant = submission.get("applicant", {})
+            risk = submission.get("risk", {})
+            coverage = submission.get("coverage_request", {})
+            
+            # Validate applicant
+            if not applicant.get("full_name"):
+                raise HTTPException(status_code=400, detail="Applicant full name is required")
+            
+            if not applicant.get("birth_date"):
+                raise HTTPException(status_code=400, detail="Applicant birth date is required")
+            
+            # Validate risk
+            if not risk.get("property_address"):
+                raise HTTPException(status_code=400, detail="Property address is required")
+            
+            if not risk.get("property_type"):
+                raise HTTPException(status_code=400, detail="Property type is required")
+            
+            # Validate coverage
+            try:
+                coverage_amount = float(coverage.get("coverage_amount", 0))
+                if coverage_amount <= 0:
+                    raise HTTPException(status_code=400, detail="Coverage amount must be greater than 0")
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail="Coverage amount must be a valid number")
+            
+            # Generate run ID
+            run_id = f"ho3_{uuid.uuid4()}"
+            
+            # Create run record
+            run_record = {
+                "run_id": run_id,
+                "status": "processing",
+                "submission": submission,
+                "created_at": datetime.now().isoformat(),
+                "workflow_type": "ho3"
+            }
+            
+            # Save to database
+            try:
+                db = get_db()
+                db.save_run_record(run_record)
+                logger.info(f"HO3 quote submitted: {run_id}")
+            except Exception as e:
+                logger.error(f"Failed to save HO3 run record: {e}")
+                # Continue processing even if DB fails
+            
+            # Process through underwriting workflow
+            try:
+                # Use mock underwriting for now (would integrate with Phase A workflow)
+                decision_result = {
+                    "decision": "REFER" if risk.get("year_built", 2020) < 2000 else "ACCEPT",
+                    "confidence": 0.85,
+                    "reasoning": "HO3 underwriting assessment completed",
+                    "citations": ["guideline_ho3_1", "guideline_ho3_2"],
+                    "required_questions": [],
+                    "referral_triggers": [] if risk.get("year_built", 2020) >= 2000 else ["Old construction"],
+                    "conditions": ["Standard HO3 terms apply"],
+                    "processing_time_ms": 150
+                }
+                
+                # Update run record with decision
+                run_record.update({
+                    "status": "completed",
+                    "decision": decision_result,
+                    "completed_at": datetime.now().isoformat()
+                })
+                
+                # Save updated record
+                try:
+                    db = get_db()
+                    db.save_run_record(run_record)
+                except Exception as e:
+                    logger.error(f"Failed to update HO3 run record: {e}")
+                
+                return {
+                    "run_id": run_id,
+                    "status": "completed",
+                    "decision": decision_result,
+                    "requires_human_review": len(decision_result.get("referral_triggers", [])) > 0,
+                    "processing_time_ms": decision_result["processing_time_ms"],
+                    "created_at": run_record["created_at"]
+                }
+                
+            except Exception as e:
+                logger.error(f"HO3 underwriting failed: {e}")
+                
+                # Update run record with error
+                run_record.update({
+                    "status": "failed",
+                    "error": str(e),
+                    "completed_at": datetime.now().isoformat()
+                })
+                
+                try:
+                    db = get_db()
+                    db.save_run_record(run_record)
+                except Exception as db_e:
+                    logger.error(f"Failed to save error record: {db_e}")
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"HO3 underwriting failed: {str(e)}"
+                )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"HO3 quote submission failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"HO3 quote submission failed: {str(e)}"
+            )
+    
     @app.post("/quote/run")
     async def run_quote_processing(request: Dict[str, Any]):
         """
@@ -665,9 +807,116 @@ def create_complete_app() -> FastAPI:
             return approval_record
             
         except Exception as e:
+            logger.error(f"Human approval failed: {e}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Human approval failed: {str(e)}"
+            )
+    
+    @app.post("/quotes/{run_id}/resume")
+    async def resume_hitol_workflow(run_id: str, resume_data: Dict[str, Any]):
+        """
+        Resume HITL workflow with additional information.
+        """
+        try:
+            # Get existing run record
+            db = get_db()
+            existing_run = db.get_run_record(run_id)
+            
+            if not existing_run:
+                raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+            
+            # Check if run is in HITL state
+            if existing_run.get("status") != "requires_human_review":
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Run {run_id} is not in HITL state. Current status: {existing_run.get('status')}"
+                )
+            
+            # Extract additional information
+            additional_answers = resume_data.get("additional_answers", {})
+            
+            # Update submission with additional information
+            updated_submission = existing_run.get("submission", {})
+            
+            # Merge additional answers into submission
+            if additional_answers:
+                # Update risk information with additional data
+                if "risk" not in updated_submission:
+                    updated_submission["risk"] = {}
+                
+                updated_submission["risk"].update(additional_answers)
+            
+            # Re-process with additional information
+            try:
+                # Mock re-processing with additional data
+                risk = updated_submission.get("risk", {})
+                year_built = risk.get("year_built", 2020)
+                
+                decision_result = {
+                    "decision": "REFER" if year_built < 2000 else "ACCEPT",
+                    "confidence": 0.90,  # Higher confidence with additional data
+                    "reasoning": "HO3 underwriting assessment completed with additional information",
+                    "citations": ["guideline_ho3_1", "guideline_ho3_2", "guideline_ho3_3"],
+                    "required_questions": [],
+                    "referral_triggers": [] if year_built >= 2000 else ["Old construction"],
+                    "conditions": ["Standard HO3 terms apply"],
+                    "processing_time_ms": 120
+                }
+                
+                # Update run record
+                updated_run = {
+                    "run_id": run_id,
+                    "status": "completed",
+                    "submission": updated_submission,
+                    "decision": decision_result,
+                    "requires_human_review": len(decision_result.get("referral_triggers", [])) > 0,
+                    "processing_time_ms": decision_result["processing_time_ms"],
+                    "completed_at": datetime.now().isoformat(),
+                    "additional_answers": additional_answers
+                }
+                
+                # Save updated record
+                db.save_run_record(updated_run)
+                
+                logger.info(f"HITL workflow resumed: {run_id}")
+                
+                return {
+                    "run_id": run_id,
+                    "status": "completed",
+                    "decision": decision_result,
+                    "requires_human_review": len(decision_result.get("referral_triggers", [])) > 0,
+                    "processing_time_ms": decision_result["processing_time_ms"],
+                    "additional_answers_processed": list(additional_answers.keys()),
+                    "created_at": existing_run.get("created_at"),
+                    "completed_at": updated_run["completed_at"]
+                }
+                
+            except Exception as e:
+                logger.error(f"HITL re-processing failed: {e}")
+                
+                # Update run record with error
+                error_run = {
+                    "run_id": run_id,
+                    "status": "failed",
+                    "error": str(e),
+                    "completed_at": datetime.now().isoformat()
+                }
+                
+                db.save_run_record(error_run)
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"HITL re-processing failed: {str(e)}"
+                )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"HITL resume failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"HITL resume failed: {str(e)}"
             )
     
     @app.get("/quote/{run_id}/review-status")

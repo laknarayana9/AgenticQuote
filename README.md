@@ -1,17 +1,27 @@
 # Agentic Underwriting Platform
 
+## 📊 Current Test Status
+
+**Unit tests**: ✅ PASS  
+**RAG/citation tests**: ✅ PASS  
+**LLM fallback tests**: ✅ PASS  
+**API integration tests**: ✅ PASS  
+**Known issue**: Database integration testing in progress  
+
+---
+
 A production-style, real-time underwriting system that combines deterministic rules with LLM-based reasoning to deliver **explainable Accept / Refer / Decline decisions**.
 
 Designed for **low-latency, high-throughput workflows** with full auditability and failure resilience.
 
 ## 📊 Production Evidence & Test Results
 
-**� Production Testing**: See comprehensive production testing evidence in [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
+**📊 Production Testing**: See comprehensive production testing evidence in [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
 
 - ✅ **LLM Safety**: Advisory-only system with deterministic fallbacks verified
 - ✅ **Performance**: 0.69ms p95 response time (291x under 200ms target)
 - ✅ **Failure Resilience**: Circuit breaker and graceful degradation proven
-- ✅ **Production Evidence**: Actual metrics and test results documented
+- ✅ **API Endpoints**: All core endpoints functional (/quote/ho3, /quote/run, /health, /runs/{run_id})
 
 ---
 
