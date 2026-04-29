@@ -306,9 +306,9 @@ class TestAPIIntegration:
         
         print(f"✅ GET run by ID: {run_data['status']} - PASS")
     
-    def test_quotes_resume_hitl(self):
-        """Test: POST /quotes/{run_id}/resume for HITL"""
-        print("\n🧪 Testing HITL resume endpoint...")
+    def test_quotes_continue_hitl(self):
+        """Test: POST /quotes/{run_id}/continue for HITL"""
+        print("\n🧪 Testing HITL continue endpoint...")
         
         # Create a run that will require HITL
         hitl_submission = {
@@ -490,7 +490,7 @@ if __name__ == "__main__":
         test_suite.setup_method()
         test_suite.test_get_run_by_id()
         test_suite.setup_method()
-        test_suite.test_quotes_resume_hitl()
+        test_suite.test_quotes_continue_hitl()
         test_suite.setup_method()
         test_suite.test_api_performance_timing()
         test_suite.setup_method()

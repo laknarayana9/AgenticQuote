@@ -16,8 +16,8 @@ class EscalationLevel(Enum):
     """Escalation levels."""
     LEVEL_1 = "level_1"  # Standard reviewer
     LEVEL_2 = "level_2"  # Senior reviewer
-    LEVEL_3 = "level_3"  # Manager
-    LEVEL_4 = "level_4"  # Director
+    LEVEL_3 = "level_3"  # Lead reviewer
+    LEVEL_4 = "level_4"  # Principal reviewer
     ESCALATED = "escalated"  # Fully escalated
 
 
@@ -92,8 +92,8 @@ class HITLEscalation:
             levels=[
                 {"level": EscalationLevel.LEVEL_1, "role": "reviewer"},
                 {"level": EscalationLevel.LEVEL_2, "role": "senior_reviewer"},
-                {"level": EscalationLevel.LEVEL_3, "role": "manager"},
-                {"level": EscalationLevel.LEVEL_4, "role": "director"}
+                {"level": EscalationLevel.LEVEL_3, "role": "lead_reviewer"},
+                {"level": EscalationLevel.LEVEL_4, "role": "principal_reviewer"}
             ],
             time_per_level_hours=4
         )

@@ -158,9 +158,9 @@ class TestEndToEndAPI:
         print(f"   ✅ Get run: {data['status']}")
         return True
     
-    def test_quotes_resume_endpoint(self):
-        """Test POST /quotes/{run_id}/resume endpoint"""
-        print("\n🧪 Testing POST /quotes/{run_id}/resume...")
+    def test_quotes_continue_endpoint(self):
+        """Test POST /quotes/{run_id}/continue endpoint"""
+        print("\n🧪 Testing POST /quotes/{run_id}/continue...")
         
         # First create a run that would require HITL
         submission = {
@@ -267,7 +267,7 @@ def main():
         ("HO3 Quote", test_suite.test_quote_ho3_endpoint),
         ("Quote Run", test_suite.test_quote_run_endpoint),
         ("Get Run", test_suite.test_get_run_endpoint),
-        ("Resume Quote", test_suite.test_quotes_resume_endpoint),
+        ("Continue Quote", test_suite.test_quotes_continue_endpoint),
         ("Root Endpoint", test_suite.test_root_endpoint),
         ("Runs List", test_suite.test_runs_list_endpoint),
         ("Metrics", test_suite.test_metrics_endpoint),

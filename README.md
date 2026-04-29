@@ -296,7 +296,7 @@ The system supports two distinct workflows:
 ```
 
 #### **HITL Continuation**
-**POST /quotes/{run_id}/resume** - Resume workflow with additional information
+**POST /quotes/{run_id}/resume** - Continue workflow with additional information
 
 **Request**:
 ```json
