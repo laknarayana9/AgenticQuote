@@ -4,6 +4,15 @@ A production-style, real-time underwriting system that combines deterministic ru
 
 Designed for **low-latency, high-throughput workflows** with full auditability and failure resilience.
 
+## 📊 Production Evidence & Test Results
+
+**� Production Testing**: See comprehensive production testing evidence in [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
+
+- ✅ **LLM Safety**: Advisory-only system with deterministic fallbacks verified
+- ✅ **Performance**: 0.69ms p95 response time (291x under 200ms target)
+- ✅ **Failure Resilience**: Circuit breaker and graceful degradation proven
+- ✅ **Production Evidence**: Actual metrics and test results documented
+
 ---
 
 ## 🚀 Why This System Exists
@@ -579,14 +588,20 @@ grep "ERROR" logs/underwriting.log | wc -l
 │   ├── index.html               # Main web interface
 │   ├── css/                     # Stylesheets
 │   └── js/                      # JavaScript
-├── tests/                        # Test suite
-│   ├── demo_scenarios.py        # Test scenarios
-│   ├── test_phase_a_scenarios.py
-│   └── test_single_scenario.py
+├── tests/                        # Production test suite
+│   ├── run_production_tests.py   # Main test runner
+│   ├── test_llm_safety.py        # LLM safety & fallback tests
+│   ├── test_rag_citations.py     # RAG citation guardrails
+│   ├── test_api_integration.py    # API endpoint tests
+│   ├── test_failure_modes.py     # Failure resilience tests
+│   ├── test_unit_agents.py       # Individual agent tests
+│   ├── test_load_performance.py  # Load & performance tests
+│   └── demo_scenarios.py        # Legacy test scenarios
 ├── k8s/                          # Kubernetes configurations
 ├── docs/                         # Documentation
 ├── config.py                     # Configuration management
 ├── requirements.txt              # Python dependencies
+├── TEST_RESULTS_V2.md            # Production test results & evidence
 └── README.md                     # This file
 ```
 
@@ -714,4 +729,19 @@ grep "LLM" logs/underwriting_$(date +%Y%m%d).log | tail -20
 
 # Check circuit breaker status
 curl "http://localhost:8000/health" | jq '.circuit_breaker'
+
+# Run production tests
+cd tests && python run_production_tests.py
 ```
+
+### 🧪 Production Testing
+
+**Comprehensive test suite with verified production evidence:**
+
+- **LLM Safety**: Advisory-only system with deterministic fallbacks
+- **Performance**: Sub-millisecond response times verified
+- **Failure Resilience**: Circuit breaker and graceful degradation tested
+- **API Integration**: Real endpoint validation
+- **Load Testing**: Scalability under concurrent load
+
+**📊 See detailed results**: [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
