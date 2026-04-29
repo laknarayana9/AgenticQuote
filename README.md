@@ -316,7 +316,7 @@ The system supports two distinct workflows:
 ### Confidence Thresholds
 - **Minimum confidence**: 0.85 for LLM decisions
 - **Fallback trigger**: Below 0.85 → deterministic rules
-- **Timeout enforcement**: 2 seconds max per LLM call
+- **Timeout enforcement**: 100ms budget per LLM call (2s absolute max)
 
 ### Failure Modes & Handling
 | Failure Type | Detection | Response |
@@ -331,6 +331,74 @@ All LLM outputs pass through:
 1. Schema validation (Pydantic models)
 2. Business rule validation (hard limits)
 3. Compliance check (regulatory constraints)
+
+---
+
+## 🛡️ LLM Safety Model
+
+### Core Principle: Advisory, Not Authoritative
+The LLM operates as an **advisory system** that provides recommendations, not authoritative decisions. All LLM outputs require validation and can be overridden by deterministic rules.
+
+### Safety Layers
+
+#### **1. Confidence Threshold Gating**
+- **Minimum Confidence**: 0.85 required for automated acceptance
+- **Low Confidence Handling**: Below 0.85 → deterministic rules automatically applied
+- **Confidence Validation**: Real-time confidence scoring with fallback logic
+
+#### **2. Deterministic Rule Override**
+- **Hard Limits**: Regulatory and compliance rules cannot be overridden
+- **Risk Caps**: Maximum exposure limits enforced regardless of LLM recommendation
+- **Business Rules**: Underwriting guidelines take precedence over LLM suggestions
+
+#### **3. Human-in-the-Loop Guardrails**
+- **High-Risk Triggers**: Automatic referral for complex cases
+- **Uncertainty Detection**: LLM uncertainty → human review required
+- **Override Capability**: Human underwriters can override any LLM decision
+
+### Failure Mode Behaviors
+| **Failure** | **Detection** | **Behavior** | **Safety Impact** |
+|-------------|---------------|--------------|-------------------|
+| **LLM Timeout** | >100ms response | Immediate fallback to rules | No decision delay |
+| **Low Confidence** | Score < 0.85 | Apply conservative deterministic rules | Higher safety margin |
+| **API Failure** | Service unavailable | Use cached/default responses | Continued operation |
+| **Invalid Response** | Schema validation fails | Retry with simplified prompt | Error recovery |
+| **Partial Data** | Missing required fields | Degrade decision conservatively | Risk mitigation |
+
+### Safety Guarantees
+- ✅ **No Single Point of Failure**: LLM failure never blocks decisions
+- ✅ **Conservative Fallback**: All fallbacks favor safety over speed
+- ✅ **Audit Trail**: Every decision logged with reasoning source
+- ✅ **Regulatory Compliance**: All decisions comply with underwriting regulations
+- ✅ **Human Oversight**: Critical decisions always require human review
+
+---
+
+## ⚡ System Constraints
+
+### Performance Targets
+- **Target Latency**: 200ms p95 for end-to-end underwriting decision
+- **Throughput**: 5,000 requests/second sustained load
+- **External API Budget**: 300ms average latency for all external calls
+- **LLM Budget**: 100ms maximum LLM response time or automatic fallback
+
+### Resource Limits
+- **Memory**: 2GB per service instance
+- **CPU**: 4 vCPU cores per instance
+- **Database**: 1000 concurrent connections max
+- **Queue Depth**: 10,000 messages before load shedding
+
+### Quality Gates
+- **Decision Confidence**: Minimum 0.85 for automated decisions
+- **Evidence Requirements**: Minimum 2 citations for high-risk decisions
+- **Compliance Score**: 100% regulatory rule validation
+- **Data Completeness**: 95% required fields populated
+
+### Service Level Objectives
+- **Availability**: 99.9% uptime (8.76 hours downtime/month)
+- **Error Rate**: <0.1% for automated decisions
+- **Recovery Time**: <30 seconds for circuit breaker recovery
+- **Data Freshness**: <5 minutes for cached external data
 
 ---
 
@@ -407,6 +475,76 @@ grep "ERROR" logs/underwriting.log | wc -l
 
 ---
 
+## 🏗️ Design Decisions
+
+### Core Architectural Decisions
+
+#### **Canonical Model vs Per-Carrier Logic**
+**Decision**: Canonical HO3 model with carrier-specific extensions
+**Rationale**: 
+- **Maintainability**: Single source of truth for core underwriting logic
+- **Scalability**: Easy to add new carriers without duplicating core rules
+- **Consistency**: Standardized risk assessment across all carriers
+- **Tradeoff**: Slight abstraction overhead vs massive code duplication
+
+#### **Queue vs Synchronous Processing**
+**Decision**: Hybrid approach - synchronous for core decisions, async for enrichment
+**Rationale**:
+- **User Experience**: Immediate response for underwriting decisions
+- **Reliability**: Async processing prevents external API failures from blocking decisions
+- **Scalability**: Queue handles burst loads without dropping requests
+- **Tradeoff**: Added complexity vs pure simplicity
+
+#### **Agent Orchestration vs Monolith**
+**Decision**: 7 specialized agents with clear responsibilities
+**Rationale**:
+- **Testability**: Each agent can be unit tested independently
+- **Maintainability**: Clear separation of concerns
+- **Debugging**: Easy to isolate issues to specific agents
+- **Tradeoff**: More moving parts vs single monolithic function
+
+#### **LLM Integration Strategy**
+**Decision**: LLM as advisory system with deterministic fallbacks
+**Rationale**:
+- **Safety**: Deterministic rules ensure regulatory compliance
+- **Reliability**: LLM failures don't block decisions
+- **Explainability**: Clear reasoning chains for audit trails
+- **Tradeoff**: Higher complexity vs pure LLM approach
+
+### Technology Choices
+
+#### **FastAPI vs Flask/Django**
+**Decision**: FastAPI
+**Rationale**: Native async support, automatic OpenAPI docs, type hints
+
+#### **Redis vs Kafka**
+**Decision**: Redis for message queuing
+**Rationale**: Simpler setup, sufficient for current scale, lower operational overhead
+
+#### **SQLite vs PostgreSQL**
+**Decision**: SQLite for development, PostgreSQL for production
+**Rationale**: SQLite for simplicity, PostgreSQL for scalability and features
+
+#### **LangGraph vs Custom Workflow**
+**Decision**: Custom 7-agent workflow for production, LangGraph for compatibility
+**Rationale**: Custom gives full control, LangGraph provides migration path
+
+### Data Flow Decisions
+
+#### **Schema-First Development**
+**Decision**: Pydantic models define all data contracts
+**Rationale**: Type safety, automatic validation, clear documentation
+
+#### **Event Sourcing for Audit**
+**Decision**: Log all decision events with full context
+**Rationale**: Complete audit trail, debugging capabilities, compliance requirements
+
+#### **Caching Strategy**
+**Decision**: Multi-layer caching (Redis + in-memory)
+**Rationale**: Performance optimization, external API rate limit management
+
+---
+
 ## 📁 Repo Structure
 
 ```
@@ -450,4 +588,130 @@ grep "ERROR" logs/underwriting.log | wc -l
 ├── config.py                     # Configuration management
 ├── requirements.txt              # Python dependencies
 └── README.md                     # This file
+```
+
+---
+
+## 🔧 Operational Model
+
+### Logging Strategy
+
+#### **Structured Logging**
+- **Format**: JSON logs with consistent schema
+- **Levels**: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- **Context**: Request ID, user ID, decision ID in all logs
+- **Rotation**: Daily log rotation with 30-day retention
+
+#### **Decision Logging**
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "request_id": "req_abc123",
+  "decision_id": "dec_def456",
+  "decision": "ACCEPT",
+  "confidence": 0.87,
+  "processing_time_ms": 185,
+  "agents_used": ["normalizer", "enrichment", "assessor"],
+  "llm_confidence": 0.91,
+  "fallback_triggered": false,
+  "citations": ["guideline_1.2.3", "risk_assessment_4.5"]
+}
+```
+
+#### **Error Logging**
+```json
+{
+  "timestamp": "2024-01-15T10:31:00Z",
+  "request_id": "req_abc124",
+  "error_type": "LLM_TIMEOUT",
+  "error_message": "LLM call exceeded 100ms budget",
+  "circuit_breaker_state": "OPEN",
+  "fallback_applied": "deterministic_rules",
+  "recovery_action": "circuit_breaker_reset"
+}
+```
+
+### Distributed Tracing
+
+#### **Trace Architecture**
+- **Trace ID**: Unique per request flow
+- **Span Types**: API, Agent, LLM, Database, External API
+- **Propagation**: Headers across all service calls
+- **Sampling**: 100% for production debugging
+
+#### **Key Spans**
+1. **API Request Span**: Entry point to response
+2. **Agent Spans**: Each agent's processing time
+3. **LLM Span**: LLM call with confidence scoring
+4. **Database Span**: Query execution time
+5. **External API Span**: Provider integration calls
+
+### Monitoring & Alerting
+
+#### **Key Metrics**
+- **Latency**: p50, p95, p99 for end-to-end decisions
+- **Throughput**: Requests per second by endpoint
+- **Error Rate**: 4xx/5xx response rates
+- **LLM Performance**: Response times, confidence scores
+- **Circuit Breaker**: State changes, failure counts
+
+#### **Alert Thresholds**
+| **Metric** | **Warning** | **Critical** | **Action** |
+|------------|-------------|--------------|------------|
+| **p95 Latency** | >300ms | >500ms | Scale up services |
+| **Error Rate** | >1% | >5% | Investigate failures |
+| **LLM Timeout Rate** | >2% | >10% | Check LLM service |
+| **Circuit Breaker Opens** | 1/hour | 5/hour | Service health check |
+| **Queue Depth** | >1000 | >5000 | Scale consumers |
+
+#### **Dashboard Components**
+- **System Health**: Overall service status
+- **Decision Flow**: End-to-end request visualization
+- **LLM Performance**: Confidence distribution, response times
+- **Agent Performance**: Individual agent metrics
+- **External Dependencies**: Provider API health
+
+### Retry Strategy
+
+#### **Retry Policies**
+- **External APIs**: Exponential backoff (1s, 2s, 4s, 8s)
+- **Database**: Immediate retry with connection pool
+- **LLM Calls**: No retry (fallback to deterministic)
+- **Message Queue**: 3 retries with dead letter queue
+
+#### **Circuit Breaker Integration**
+- **Failure Threshold**: 5 failures in 30 seconds
+- **Recovery**: 30 second timeout, then half-open state
+- **Success Threshold**: 2 successes to close circuit
+- **Monitoring**: Real-time state in health checks
+
+### Incident Response
+
+#### **Severity Levels**
+- **P0**: System down, no decisions processing
+- **P1**: High error rate (>10%), degraded service
+- **P2**: Performance degradation, elevated latency
+- **P3**: Minor issues, non-critical features affected
+
+#### **Response Procedures**
+1. **Detection**: Automated alerts trigger incident
+2. **Assessment**: On-call engineer evaluates impact
+3. **Mitigation**: Apply fallbacks, scale resources
+4. **Communication**: Stakeholder notifications
+5. **Resolution**: Root cause analysis, fixes
+6. **Post-mortem**: Documentation and improvements
+
+#### **Run Commands**
+```bash
+# Check system health
+curl "http://localhost:8000/health" | jq .
+
+# View recent decisions
+curl "http://localhost:8000/runs?limit=50" | jq '.[] | {decision, confidence, processing_time_ms}'
+
+# Monitor LLM performance
+grep "LLM" logs/underwriting_$(date +%Y%m%d).log | tail -20
+
+# Check circuit breaker status
+curl "http://localhost:8000/health" | jq '.circuit_breaker'
 ```

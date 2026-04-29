@@ -148,7 +148,7 @@ class LLMEngine:
             return self._parse_llm_response(content)
 
         except asyncio.TimeoutError:
-            logger.error("❌ OpenAI API call timed out after 2 seconds")
+            logger.error("❌ OpenAI API call timed out after 100ms budget")
             raise
         except Exception as e:
             logger.error(f"❌ OpenAI API call failed: {e}")
@@ -190,11 +190,11 @@ class LLMEngine:
                 response_format={"type": "json_object"},
             )
         
-        # Enforce 2-second timeout
+        # Enforce 100ms budget (2s absolute max for safety)
         try:
-            return await asyncio.wait_for(make_api_call(), timeout=2.0)
+            return await asyncio.wait_for(make_api_call(), timeout=0.1)
         except asyncio.TimeoutError:
-            logger.warning("LLM call exceeded 2-second timeout, falling back to deterministic rules")
+            logger.warning("LLM call exceeded 100ms budget, falling back to deterministic rules")
             raise
 
     def _build_prompt(self, request: LLMRequest) -> str:

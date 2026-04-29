@@ -17,7 +17,7 @@ from app.circuit_breaker import CircuitBreakerOpenError
 
 
 def test_timeout_enforcement():
-    """Test that LLM calls timeout after 2 seconds"""
+    """Test that LLM calls timeout after 100ms budget"""
     print("🧪 Testing LLM Timeout Enforcement...")
     
     # Create LLM engine with mock API key
@@ -38,15 +38,15 @@ def test_timeout_enforcement():
         print(f"   Confidence: {response.confidence}")
         print(f"   Processing time: {response.processing_time_ms:.2f}ms")
         
-        # Check if timeout was enforced (should be under 2.1 seconds for safety margin)
-        if response.processing_time_ms < 2100:
-            print("✅ Timeout enforcement working")
+        # Check if timeout was enforced (should be under 110ms for safety margin)
+        if response.processing_time_ms < 110:
+            print("✅ 100ms timeout budget enforcement working")
         else:
-            print("⚠️  Timeout may not be enforced properly")
+            print("⚠️  100ms timeout budget may not be enforced properly")
             
     except Exception as e:
         print(f"⚠️  LLM call failed (expected if no OpenAI key): {e}")
-        print("✅ Timeout enforcement structure is in place")
+        print("✅ 100ms timeout budget enforcement structure is in place")
 
 
 def test_confidence_based_fallback():
@@ -161,7 +161,7 @@ def main():
     print("\n" + "=" * 60)
     print("✅ LLM Reliability Feature Tests Complete")
     print("\n📋 Summary:")
-    print("✅ Timeout enforcement (2 seconds) - Implemented")
+    print("✅ Timeout enforcement (100ms budget) - Implemented")
     print("✅ Circuit breaker (5 failures) - Implemented")
     print("✅ Confidence-based fallback (0.85 threshold) - Implemented")
     print("✅ Deterministic rules - Implemented")
