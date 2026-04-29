@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """
 RAG Citation Guardrail Tests
-Critical for demonstrating evidence-based underwriting with citation requirements
-Tests that high-risk decisions require 2+ citations and missing citations force REFER
+Critical for demonstrating evidence-based underwriting
+Tests citation requirements and guardrail enforcement
 """
 
 import pytest
+import asyncio
+import time
+import sys
+import os
 from unittest.mock import patch, AsyncMock
 from typing import Dict, Any, List
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.llm_engine import LLMEngine, LLMRequest, LLMResponse
 from workflows.agents import UnderwritingAssessorAgent, VerifierGuardrailAgent

@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
 Failure Mode Tests
-Tests API timeout, Redis unavailable, DB unavailable, queue depth high, circuit breaker behavior
-Critical for demonstrating production resilience and graceful degradation
+Critical for demonstrating system resilience under various failure conditions
+Tests graceful degradation and fallback mechanisms
 """
 
 import pytest
 import asyncio
 import time
-from unittest.mock import patch, AsyncMock, MagicMock
+import sys
+import os
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
+from typing import Dict, Any
 
-from app.complete import app
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.complete import create_complete_app
 from app.llm_engine import LLMEngine, LLMRequest
-from app.redis_queue import RedisQueue
 from app.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError
 
 
@@ -22,6 +27,7 @@ class TestFailureModes:
     
     def setup_method(self):
         """Setup test environment"""
+        app = create_complete_app()
         self.client = TestClient(app)
         self.engine = LLMEngine(api_key="test_key")
     

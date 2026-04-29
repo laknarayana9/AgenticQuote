@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
 API Integration Tests
-Tests the real endpoints shown in README: POST /quote/ho3, POST /quote/run, GET /health, GET /runs/{run_id}
-Covers complete low-risk quote → ACCEPT, high-risk → REFER, ineligible → DECLINE, HITL scenarios
+Tests actual API endpoints with real HTTP requests
+Critical for demonstrating system functionality end-to-end
 """
 
 import pytest
 import asyncio
-import json
 import time
+import sys
+import os
 from fastapi.testclient import TestClient
 from typing import Dict, Any
 
-# Import the main application
-from app.complete import app
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.complete import create_complete_app
 from models.schemas import HO3Submission
 
 
@@ -22,6 +25,7 @@ class TestAPIIntegration:
     
     def setup_method(self):
         """Setup test client"""
+        app = create_complete_app()
         self.client = TestClient(app)
     
     def test_health_endpoint(self):

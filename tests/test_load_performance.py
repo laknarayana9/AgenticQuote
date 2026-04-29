@@ -8,18 +8,24 @@ Tests 10, 50, 100, 500 users with actual performance metrics
 import asyncio
 import time
 import statistics
+import sys
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 import json
 
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi.testclient import TestClient
-from app.complete import app
+from app.complete import create_complete_app
 
 
 class LoadTestRunner:
     """Load test runner for realistic performance testing"""
     
     def __init__(self):
+        app = create_complete_app()
         self.client = TestClient(app)
         self.results = []
     
