@@ -7,17 +7,20 @@ Handles GPT-4 integration for underwriting decisions
 import os
 import json
 import logging
+import asyncio
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 
 try:
     from openai import OpenAI
-
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
     logging.warning("OpenAI not available, using mock LLM responses")
+
+# Import circuit breaker for failure tolerance
+from .circuit_breaker import circuit_breaker, CircuitBreakerConfig, CircuitBreakerOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +32,10 @@ class LLMRequest:
     query: str
     context: List[str]
     evidence: List[Dict[str, Any]]
-    query_type: str
+    query_type: str = "underwriting_decision"
     max_tokens: int = 1000
-    temperature: float = 0.3
+    temperature: float = 0.1
+    confidence_threshold: float = 0.85  # Minimum confidence for LLM decisions
 
 
 @dataclass
@@ -79,16 +83,30 @@ class LLMEngine:
         else:
             logger.warning("⚠️ OpenAI not available, using mock responses")
             self.client = None
+        
+        # Initialize circuit breaker for LLM calls
+        self.circuit_breaker_config = CircuitBreakerConfig(
+            failure_threshold=5,      # 5 failures before opening
+            timeout_seconds=30,      # 30 seconds timeout
+            success_threshold=2       # 2 successes to close
+        )
+        
+        # Apply circuit breaker to OpenAI calls
+        if self.client:
+            self._call_openai_with_circuit_breaker = circuit_breaker(
+                "openai_llm", 
+                self.circuit_breaker_config
+            )(self._call_openai_internal)
 
     def generate_decision(self, request: LLMRequest) -> LLMResponse:
         """
-        Generate underwriting decision using LLM
+        Generate underwriting decision using LLM with confidence-based fallback
 
         Args:
             request: LLM request with context and evidence
 
         Returns:
-            Structured LLM response
+            Structured LLM response or deterministic fallback
         """
         start_time = datetime.now()
 
@@ -101,20 +119,67 @@ class LLMEngine:
             processing_time = (datetime.now() - start_time).total_seconds() * 1000
             response.processing_time_ms = processing_time
 
+            # Check confidence threshold and apply fallback if needed
+            if response.confidence < request.confidence_threshold:
+                logger.warning(
+                    f"LLM confidence {response.confidence:.2f} below threshold "
+                    f"{request.confidence_threshold:.2f} - applying deterministic fallback"
+                )
+                return self._deterministic_fallback(request, start_time, response)
+
             return response
 
+        except (CircuitBreakerOpenError, asyncio.TimeoutError) as e:
+            logger.error(f"❌ LLM service unavailable ({type(e).__name__}) - applying deterministic fallback")
+            return self._deterministic_fallback(request, start_time, None)
         except Exception as e:
             logger.error(f"❌ LLM generation failed: {e}")
             return self._fallback_response(request, start_time)
 
+    def _call_openai_internal(self, request: LLMRequest, prompt: str) -> LLMResponse:
+        """Internal OpenAI API call with timeout enforcement"""
+
+        try:
+            # Enforce 2-second timeout using asyncio
+            response = asyncio.run(self._call_openai_with_timeout(request, prompt))
+            
+            # Parse structured response
+            content = json.loads(response.choices[0].message.content)
+            return self._parse_llm_response(content)
+
+        except asyncio.TimeoutError:
+            logger.error("❌ OpenAI API call timed out after 2 seconds")
+            raise
+        except Exception as e:
+            logger.error(f"❌ OpenAI API call failed: {e}")
+            raise
+
     def _call_openai(self, request: LLMRequest) -> LLMResponse:
-        """Call OpenAI API with structured prompt"""
+        """Call OpenAI API with circuit breaker and timeout enforcement"""
 
         # Build prompt based on query type
         prompt = self._build_prompt(request)
 
         try:
-            response = self.client.chat.completions.create(
+            # Use circuit breaker protected call
+            if hasattr(self, '_call_openai_with_circuit_breaker'):
+                return self._call_openai_with_circuit_breaker(request, prompt)
+            else:
+                # Fallback to direct call if circuit breaker not available
+                return self._call_openai_internal(request, prompt)
+
+        except CircuitBreakerOpenError:
+            logger.error("❌ Circuit breaker is OPEN - LLM service unavailable")
+            raise
+        except Exception as e:
+            logger.error(f"❌ LLM call failed: {e}")
+            raise
+
+    async def _call_openai_with_timeout(self, request: LLMRequest, prompt: str):
+        """Call OpenAI API with timeout enforcement"""
+        
+        async def make_api_call():
+            return self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": self._get_system_prompt(request.query_type)},
@@ -124,13 +189,12 @@ class LLMEngine:
                 temperature=request.temperature,
                 response_format={"type": "json_object"},
             )
-
-            # Parse structured response
-            content = json.loads(response.choices[0].message.content)
-            return self._parse_llm_response(content)
-
-        except Exception as e:
-            logger.error(f"❌ OpenAI API call failed: {e}")
+        
+        # Enforce 2-second timeout
+        try:
+            return await asyncio.wait_for(make_api_call(), timeout=2.0)
+        except asyncio.TimeoutError:
+            logger.warning("LLM call exceeded 2-second timeout, falling back to deterministic rules")
             raise
 
     def _build_prompt(self, request: LLMRequest) -> str:
@@ -283,8 +347,94 @@ Evidence {i}:
             processing_time_ms=50.0,
         )
 
+    def _deterministic_fallback(self, request: LLMRequest, start_time: datetime, llm_response: Optional[LLMResponse]) -> LLMResponse:
+        """
+        Apply deterministic rules when LLM confidence is below threshold or LLM is unavailable
+        
+        Args:
+            request: Original LLM request
+            start_time: Request start time
+            llm_response: LLM response (if available but low confidence)
+        
+        Returns:
+            Deterministic fallback response
+        """
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Apply deterministic rules based on evidence
+        decision = self._apply_deterministic_rules(request.evidence)
+        reasoning = f"Deterministic rules applied (LLM confidence {llm_response.confidence if llm_response else 'unavailable':.2f} below threshold {request.confidence_threshold:.2f})"
+        
+        return LLMResponse(
+            decision=decision["decision"],
+            confidence=0.9,  # High confidence in deterministic rules
+            reasoning=reasoning,
+            citations=decision["citations"],
+            required_questions=decision["required_questions"],
+            referral_triggers=decision["referral_triggers"],
+            conditions=decision["conditions"],
+            processing_time_ms=processing_time,
+        )
+
+    def _apply_deterministic_rules(self, evidence: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Apply deterministic underwriting rules when LLM is unavailable or low confidence
+        
+        Args:
+            evidence: Available evidence chunks
+        
+        Returns:
+            Deterministic decision with reasoning
+        """
+        # Default to REFER for safety
+        decision = "REFER"
+        citations = []
+        required_questions = []
+        referral_triggers = ["LLM fallback applied"]
+        conditions = ["Manual review required due to LLM unavailability"]
+        
+        # Check for high-risk factors in evidence
+        high_risk_factors = []
+        for chunk in evidence:
+            text = chunk.get("text", "").lower()
+            
+            # Look for high-risk indicators
+            if "wildfire" in text and ("high" in text or "severe" in text):
+                high_risk_factors.append("High wildfire risk")
+                citations.append(chunk.get("chunk_id", ""))
+            
+            if "flood" in text and ("zone" in text and ("a" in text or "high" in text)):
+                high_risk_factors.append("Flood zone")
+                citations.append(chunk.get("chunk_id", ""))
+            
+            if "earthquake" in text and ("fault" in text or "high" in text):
+                high_risk_factors.append("Earthquake risk")
+                citations.append(chunk.get("chunk_id", ""))
+        
+        # If no high-risk factors and sufficient evidence, consider ACCEPT
+        if len(high_risk_factors) == 0 and len(evidence) >= 2:
+            decision = "ACCEPT"
+            referral_triggers = []
+            conditions = ["Approved via deterministic rules"]
+            citations = [chunk.get("chunk_id", "") for chunk in evidence[:2]]
+        
+        # If high-risk factors found, require more information
+        elif len(high_risk_factors) > 0:
+            required_questions = [
+                f"Please provide additional documentation for: {', '.join(high_risk_factors)}"
+            ]
+            referral_triggers.extend(high_risk_factors)
+        
+        return {
+            "decision": decision,
+            "citations": citations,
+            "required_questions": required_questions,
+            "referral_triggers": referral_triggers,
+            "conditions": conditions
+        }
+
     def _fallback_response(self, request: LLMRequest, start_time: datetime) -> LLMResponse:
-        """Generate fallback response when LLM fails"""
+        """Generate fallback response when LLM fails completely"""
 
         processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
@@ -300,14 +450,22 @@ Evidence {i}:
         )
 
     def health_check(self) -> Dict[str, Any]:
-        """Check LLM engine health"""
-        return {
+        """Check LLM engine health including circuit breaker status"""
+        health = {
             "status": "healthy" if self.client else "mock_mode",
             "openai_available": OPENAI_AVAILABLE,
             "api_key_configured": bool(self.api_key),
             "client_initialized": self.client is not None,
             "timestamp": datetime.now().isoformat(),
         }
+        
+        # Add circuit breaker status if available
+        if hasattr(self, 'circuit_breaker_config'):
+            from .circuit_breaker import get_all_circuit_breaker_states
+            cb_states = get_all_circuit_breaker_states()
+            health["circuit_breaker"] = cb_states.get("openai_llm", {"status": "not_initialized"})
+        
+        return health
 
 
 # Global LLM engine instance
