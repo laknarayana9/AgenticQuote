@@ -414,7 +414,7 @@ class AgentCommunication:
             "registered_agents": len(self.message_queues),
             "total_messages": len(self.message_history),
             "message_queues": {
-                agent_id: len(queue)
+                agent_id: queue.qsize()
                 for agent_id, queue in self.message_queues.items()
             }
         }

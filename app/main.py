@@ -156,8 +156,12 @@ async def run_quote_processing(request: QuoteRunRequest):
         citations = workflow_state.uw_assessment.citations if workflow_state.uw_assessment else []
         required_questions = [q.dict() for q in workflow_state.decision.required_questions] if workflow_state.decision and workflow_state.decision.required_questions else []
         
-        # Determine message based on decision
-        if workflow_state.decision:
+        # Determine status and message
+        if workflow_state.missing_info and not request.additional_answers:
+            status = "waiting_for_info"
+            message = "Additional information required to continue"
+        elif workflow_state.decision:
+            status = "completed"
             if workflow_state.decision.decision == "ACCEPT":
                 message = "Quote accepted for policy issuance"
             elif workflow_state.decision.decision == "REFER":
@@ -167,11 +171,12 @@ async def run_quote_processing(request: QuoteRunRequest):
             else:
                 message = "Processing complete"
         else:
+            status = "completed"
             message = "Processing complete"
-        
+
         return QuoteRunResponse(
             run_id=run_id,
-            status="completed",
+            status=status,
             decision=decision_dict,
             premium=premium_dict,
             citations=citations,

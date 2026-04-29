@@ -58,6 +58,13 @@ class UnderwritingNodes:
         if submission.coverage_amount <= 0:
             missing_info.append("valid coverage_amount")
         
+        # Check underwriting-required fields
+        if not submission.roof_type:
+            missing_info.append("roof_type")
+
+        if not submission.square_footage:
+            missing_info.append("square_footage")
+
         # Check for reasonable values
         if submission.coverage_amount > 10000000:  # $10M limit
             missing_info.append("coverage_amount exceeds maximum limit")
@@ -500,7 +507,7 @@ class UnderwritingNodes:
                 ],
                 next_steps=["Provide missing information and resubmit"]
             )
-        elif assessment.eligibility_score >= 0.7 and not any(t.severity == "high" for t in assessment.triggers):
+        elif assessment and assessment.eligibility_score >= 0.7 and not any(t.severity == "high" for t in assessment.triggers):
             decision = Decision(
                 decision=DecisionType.ACCEPT,
                 rationale=f"Property meets eligibility criteria. Score: {assessment.eligibility_score:.2f}",
@@ -508,7 +515,7 @@ class UnderwritingNodes:
                 premium=state.premium_breakdown,
                 next_steps=["Policy issuance", "Payment collection", "Policy document delivery"]
             )
-        elif assessment.eligibility_score < 0.5 or any(t.severity == "high" for t in assessment.triggers):
+        elif assessment and (assessment.eligibility_score < 0.5 or any(t.severity == "high" for t in assessment.triggers)):
             decision = Decision(
                 decision=DecisionType.DECLINE,
                 rationale=f"Property does not meet eligibility requirements. Score: {assessment.eligibility_score:.2f}",
@@ -518,9 +525,9 @@ class UnderwritingNodes:
         else:
             decision = Decision(
                 decision=DecisionType.REFER,
-                rationale=f"Property requires manual review. Score: {assessment.eligibility_score:.2f}",
-                citations=assessment.citations,
-                required_questions=assessment.required_questions,
+                rationale=f"Property requires manual review. Score: {assessment.eligibility_score:.2f}" if assessment else "Manual review required",
+                citations=assessment.citations if assessment else [],
+                required_questions=assessment.required_questions if assessment else [],
                 next_steps=["Underwriter manual review", "Additional documentation may be required"]
             )
         
@@ -531,8 +538,8 @@ class UnderwritingNodes:
         tool_call = ToolCall(
             tool_name="decision_making",
             input_data={
-                "eligibility_score": assessment.eligibility_score,
-                "triggers": [t.model_dump() for t in assessment.triggers],
+                "eligibility_score": assessment.eligibility_score if assessment else None,
+                "triggers": [t.model_dump() for t in assessment.triggers] if assessment else [],
                 "missing_info": missing_info
             },
             output_data={"decision": decision.model_dump()},

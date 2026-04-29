@@ -80,22 +80,9 @@ def create_agentic_underwriting_graph() -> StateGraph:
     
     workflow.add_edge("rate", "decide")
     
-    # Check if decision requires more information
-    def check_decision_loop(state: WorkflowState) -> str:
-        if (state.decision and 
-            state.decision.decision == DecisionType.REFER and 
-            state.decision.required_questions):
-            return "needs_questions"
-        return "final"
-    
-    workflow.add_conditional_edges(
-        "decide",
-        check_decision_loop,
-        {
-            "needs_questions": "handle_missing_info",
-            "final": END
-        }
-    )
+    # End immediately — HITL pause is signalled at the API layer via missing_info,
+    # not by looping the graph (which causes recursion limit errors).
+    workflow.add_edge("decide", END)
     
     return workflow
 
