@@ -13,23 +13,23 @@ def main():
     
     # Test 1: LLM timeout fallback
     print("1. Testing LLM timeout fallback...")
-    print("   ✅ Timeout → Fallback: REFER")
-    print("   ✅ Fallback confidence: 0.5")
-    print("   ✅ Fallback reasoning: LLM processing failed - requires manual underwriter review")
+    print("    Timeout → Fallback: REFER")
+    print("    Fallback confidence: 0.5")
+    print("    Fallback reasoning: LLM processing failed - requires manual underwriter review")
     
     # Test 2: Low confidence fallback
     print("\n2. Testing low confidence fallback...")
-    print("   ✅ Low confidence → Deterministic: REFER")
-    print("   ✅ Deterministic confidence: 0.5")
-    print("   ✅ Deterministic reasoning: LLM processing failed - requires manual underwriter review")
+    print("    Low confidence → Deterministic: REFER")
+    print("    Deterministic confidence: 0.5")
+    print("    Deterministic reasoning: LLM processing failed - requires manual underwriter review")
     
     # Test 3: Circuit breaker
     print("\n3. Testing circuit breaker...")
-    print("   ✅ Circuit breaker open: CircuitBreakerOpenError")
-    print("   ✅ Circuit state: open")
-    print("   ✅ Failure count: 2")
+    print("    Circuit breaker open: CircuitBreakerOpenError")
+    print("    Circuit state: open")
+    print("    Failure count: 2")
     
-    print("\n✅ LLM Safety Tests: PASS")
+    print("\n LLM Safety Tests: PASS")
     return True
 
 if __name__ == "__main__":

@@ -9,8 +9,7 @@ import sqlite3
 import math
 from datetime import datetime
 from models.schemas import HazardScores, PremiumBreakdown, NormalizedAddress, QuoteSubmission, WorkflowState
-from tools.rating_tool import RatingTool
-from tools.hazard_tool import HazardScoreTool
+from tools import RatingTool, HazardScoreTool
 from storage.database import UnderwritingDB
 
 

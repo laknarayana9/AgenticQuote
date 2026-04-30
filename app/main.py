@@ -7,12 +7,8 @@ import uuid
 from datetime import datetime
 
 from models.schemas import QuoteSubmission, RunRecord, WorkflowState, HO3Submission
-from workflows.graph import run_underwriting_workflow
-from workflows.agentic_graph import run_agentic_underwriting_workflow
-from workflows.phase_a_graph import run_phase_a_workflow
+from workflows.agent_workflow import run_agent_workflow
 from storage.database import db
-from app.api_canonical import router as canonical_router
-from observability import observability
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -24,25 +20,14 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=["http://localhost:3000", "http://localhost:8000"],  # Restrict to localhost for development
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Specific methods instead of wildcard
+    allow_headers=["Content-Type", "Authorization"],  # Specific headers instead of wildcard
 )
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Include Canonical API router
-app.include_router(canonical_router)
-
-
-# Startup event to initialize observability
-@app.on_event("startup")
-async def startup_event():
-    """Initialize observability on startup."""
-    observability.initialize()
-    observability.instrument_fastapi(app)
+# Note: static files and canonical router removed during cleanup
 
 
 # Request/Response models
@@ -138,14 +123,8 @@ async def run_quote_processing(request: QuoteRunRequest):
     Process a quote submission through the underwriting workflow.
     """
     try:
-        # Choose workflow based on agentic flag
-        if request.use_agentic:
-            workflow_state = await run_agentic_underwriting_workflow(
-                request.submission,
-                request.additional_answers
-            )
-        else:
-            workflow_state = await run_underwriting_workflow(request.submission)
+        # Use 7-agent system for all processing
+        workflow_state = run_agent_workflow(request.submission.model_dump())
         
         # Store the run record
         run_id = store_run_record(workflow_state)
@@ -202,7 +181,7 @@ async def run_ho3_quote_processing(request: HO3RunRequest):
     """
     try:
         # Run Phase A workflow
-        workflow_state = run_phase_a_workflow(request.submission.model_dump())
+        workflow_state = run_agent_workflow(request.submission.model_dump())
         
         # Store the run record
         run_id = store_run_record(workflow_state)

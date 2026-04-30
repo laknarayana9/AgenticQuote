@@ -1,36 +1,56 @@
 # Agentic Underwriting Platform
 
-## 📊 Current Test Status
-
-**Unit tests**: ✅ PASS  
-**RAG/citation tests**: ✅ PASS  
-**LLM fallback tests**: ✅ PASS  
-**API integration tests**: ✅ PASS  
-**End-to-end tests**: ✅ PASS  
-**Load performance tests**: ✅ PASS  
-**Failure mode tests**: ✅ PASS  
-**Production tests**: ✅ PASS  
-
-**🏆 Perfect Coverage: 8/8 test categories functional (100% success rate)**  
+**Status: Architecture exploration with partial implementation. See [CURRENT_STATE.md](CURRENT_STATE.md) for what works and what doesn't.**
 
 ---
 
 A target architecture for underwriting systems that combines deterministic rules with LLM-based reasoning to deliver **explainable Accept / Refer / Decline decisions**.
 
-Designed for **low-latency, high-throughput workflows** with full auditability and failure resilience.
-
-## 📊 Production Evidence & Test Results
-
-**📊 Production Testing**: See comprehensive production testing evidence in [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
-
-- ✅ **LLM Safety**: Advisory-only system with deterministic fallbacks verified
-- ✅ **Performance**: 0.69ms p95 response time (291x under 200ms target)
-- ✅ **Failure Resilience**: Circuit breaker and graceful degradation proven
-- ✅ **API Endpoints**: All core endpoints functional (/quote/ho3, /quote/run, /health, /runs/{run_id})
+Designed for **modular processing workflows** with full auditability and failure resilience.
 
 ---
 
-## 🚀 Why This System Exists
+## Quick Start
+
+### Prerequisites
+- Python 3.8+
+- OpenAI API key (for LLM features - currently using mock implementation)
+
+### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
+cd AgenticQuote
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Copy environment template
+cp .env.example .env
+# Edit .env with your OpenAI API key
+```
+
+### Running the Application
+```bash
+# Start the FastAPI server
+python -m app.main
+
+# Or use uvicorn directly
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Testing
+```bash
+# Run all tests
+python -m pytest tests/
+
+# Run specific test
+python tests/test_agent_workflow.py
+```
+
+---
+
+##  Why This System Exists
 
 Modern underwriting systems face three core challenges:
 
@@ -44,7 +64,7 @@ This system explores a hybrid approach:
 
 ---
 
-## 🧭 System Overview
+##  System Overview
 
 End-to-end request flow:
 
@@ -75,13 +95,13 @@ graph TB
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ### Dual Workflow System
 
 The system implements two distinct workflows for different use cases:
 
-#### **Phase A: 7-Agent Production System**
+#### **Phase A: 7-Agent System**
 
 **IntakeNormalizerAgent**
 - Validates and canonicalizes HO3 submission data
@@ -118,10 +138,9 @@ The system implements two distinct workflows for different use cases:
 - Premium calculation and rating
 - Audit trail compilation
 
-#### **Phase B: Legacy LangGraph Workflow**
+#### **Phase B: Legacy Workflow (Removed)**
 
-**Linear Processing Chain**
-- validate → enrich → retrieve_guidelines → assess → decide
+**Previous Implementation**: Linear processing chain has been replaced with modular 7-agent system.
 - Human-in-the-loop for missing information
 - Backward compatibility with existing integrations
 
@@ -135,8 +154,8 @@ The system implements two distinct workflows for different use cases:
 
 **Message Queue System**
 
-* Redis-based asynchronous processing
-* Priority-based message ordering
+* Simple in-memory processing for current implementation
+* Synchronous processing for reliability
 * Circuit breaker patterns for external APIs
 
 **Vector Database**
@@ -179,22 +198,23 @@ Each component is independently recoverable to prevent cascading failures.
 
 ---
 
-## 🎯 Design Tradeoffs
+##  Design Tradeoffs
 
-### LangGraph vs Custom Orchestrator
-**Chose**: LangGraph
+### Custom Workflow vs LangGraph
+**Chose**: Custom 7-agent workflow
 **Why**: 
-- Built-in state management and visualization
-- Proven for agentic workflows
-- Faster iteration (2 weeks vs 6 weeks custom)
-**Tradeoff**: Vendor lock-in, less control over execution details
+- Full control over execution and state management
+- Better modularity and testability
+- No vendor dependencies
+**Tradeoff**: More implementation effort
 
-### Redis Queue vs Kafka
-**Chose**: Redis
+### Simple Processing vs Message Queue
+**Chose**: Simple synchronous processing
 **Why**:
-- Simpler ops for single-region deployment
-- Lower memory footprint
-- Sufficient for current throughput (1K req/sec)
+- More reliable for current scale
+- Lower operational complexity
+- Easier debugging and monitoring
+- Suitable for current implementation scale
 **Tradeoff**: Limited replay capabilities, no cross-region replication
 
 ### RAG vs Rules-Only
@@ -215,7 +235,7 @@ Each component is independently recoverable to prevent cascading failures.
 
 ---
 
-## 🔄 Request Lifecycle
+##  Request Lifecycle
 
 ### Phase A: 7-Agent Workflow
 
@@ -248,13 +268,13 @@ Each component is independently recoverable to prevent cascading failures.
 
 ---
 
-## 📡 API Contract
+##  API Contract
 
 ### Dual Workflow Architecture
 
 The system supports two distinct workflows:
 
-#### **Phase A: 7-Agent System** (Production)
+#### **7-Agent System**
 **POST /quote/ho3** - Structured HO3 underwriting with specialized agents
 
 **Request**:
@@ -390,15 +410,15 @@ The LLM operates as an **advisory system** that provides recommendations, not au
 | **Partial Data** | Missing required fields | Degrade decision conservatively | Risk mitigation |
 
 ### Safety Guarantees
-- ✅ **No Single Point of Failure**: LLM failure never blocks decisions
-- ✅ **Conservative Fallback**: All fallbacks favor safety over speed
-- ✅ **Audit Trail**: Every decision logged with reasoning source
-- ✅ **Regulatory Compliance**: All decisions comply with underwriting regulations
-- ✅ **Human Oversight**: Critical decisions always require human review
+- **No Single Point of Failure**: LLM failure never blocks decisions
+- **Conservative Fallback**: All fallbacks favor safety over speed
+- **Audit Trail**: Every decision logged with reasoning source
+- **Regulatory Compliance**: All decisions comply with underwriting regulations
+- **Human Oversight**: Critical decisions always require human review
 
 ---
 
-## ⚡ System Constraints
+##  System Constraints
 
 ### Performance Targets
 - **Target Latency**: 200ms p95 for end-to-end underwriting decision
@@ -426,17 +446,17 @@ The LLM operates as an **advisory system** that provides recommendations, not au
 
 ---
 
-## 📊 Scaling Strategy
+##  Scaling Strategy
 
 * **Horizontal scaling**: Stateless services via load balancer
-* **Caching layer**: External API responses cached (Redis)
-* **Async processing**: Non-critical enrichment via message queue
-* **Load shedding**: Queue requests > 1000/second
-* **Graceful degradation**: Disable LLM for >2s latency
+* **Caching layer**: In-memory caching for external API responses
+* **Synchronous processing**: Reliable processing for current scale
+* **Load shedding**: Rate limiting for >1000 requests/second
+* **Graceful degradation**: Disable LLM features for >2s latency
 
 ---
 
-## ⚠️ Failure Handling
+##  Failure Handling
 
 | Scenario | Behavior |
 |----------|----------|
@@ -448,13 +468,13 @@ The LLM operates as an **advisory system** that provides recommendations, not au
 
 ---
 
-## 🚨 Operations Runbook
+##  Operations Runbook
 
 ### Incident Response
 
 **High Error Rate (>5%)**
 1. Check external API health (Verisk, geocoding)
-2. Verify Redis connectivity
+2. Verify database connectivity
 3. Review LLM response times
 4. Enable degraded mode if needed
 
@@ -499,7 +519,7 @@ grep "ERROR" logs/underwriting.log | wc -l
 
 ---
 
-## 🏗️ Design Decisions
+##  Design Decisions
 
 ### Core Architectural Decisions
 
@@ -541,31 +561,28 @@ grep "ERROR" logs/underwriting.log | wc -l
 **Decision**: FastAPI
 **Rationale**: Native async support, automatic OpenAPI docs, type hints
 
-#### **Redis vs Kafka**
-**Decision**: Redis for message queuing
-**Rationale**: Simpler setup, sufficient for current scale, lower operational overhead
-
 #### **SQLite vs PostgreSQL**
-**Decision**: SQLite for development, PostgreSQL for production
+**Decision**: SQLite for development, PostgreSQL for larger deployments
 **Rationale**: SQLite for simplicity, PostgreSQL for scalability and features
 
-#### **LangGraph vs Custom Workflow**
-**Decision**: Custom 7-agent workflow for production, LangGraph for compatibility
-**Rationale**: Custom gives full control, LangGraph provides migration path
+#### **Custom Workflow vs External Frameworks**
+**Decision**: Custom 7-agent workflow implementation
+**Rationale**: Full control, no vendor dependencies, better testability
 
 ### Data Flow Decisions
 
-#### **Schema-First Development**
-**Decision**: Pydantic models define all data contracts
-**Rationale**: Type safety, automatic validation, clear documentation
+#### **Caching Strategy**
+**Decision**: In-memory caching for external API responses
+**Rationale**: Performance optimization, simpler implementation
 
 #### **Event Sourcing for Audit**
 **Decision**: Log all decision events with full context
 **Rationale**: Complete audit trail, debugging capabilities, compliance requirements
 
-#### **Caching Strategy**
-**Decision**: Multi-layer caching (Redis + in-memory)
-**Rationale**: Performance optimization, external API rate limit management
+### Operational Model
+#### **State Management**
+**Decision**: In-memory state for current implementation
+**Rationale**: Simpler debugging, no external dependencies
 
 ---
 
@@ -573,56 +590,50 @@ grep "ERROR" logs/underwriting.log | wc -l
 
 ```
 ├── app/                          # Core application logic
-│   ├── complete.py              # Main FastAPI application
 │   ├── main.py                  # API endpoints
 │   ├── rag_engine.py            # RAG implementation
 │   ├── llm_engine.py            # LLM integration
-│   ├── redis_queue.py           # Message queue
-│   ├── cognitive_engine.py      # Advanced reasoning
-│   └── api_canonical.py         # Phase A API endpoints
+│   ├── complete.py               # Test compatibility app
+│   ├── circuit_breaker.py       # Circuit breaker implementation
+│   ├── cognitive_engine.py      # Test compatibility stub
+│   ├── intelligent_reasoning.py # Test compatibility stub
+│   ├── evidence_verifier.py     # Test compatibility stub
+│   └── decision_composer.py     # Test compatibility stub
 ├── workflows/                    # Workflow orchestration
-│   ├── agentic_graph.py         # Legacy LangGraph workflow
-│   ├── phase_a_graph.py         # 7-agent production workflow
-│   └── nodes.py                 # Individual workflow nodes
+│   ├── agent_workflow.py        # 7-agent workflow implementation
+│   ├── agents.py                # Agent implementations
+│   ├── hitl.py                  # Human-in-the-loop workflow
+│   ├── nodes.py                 # Individual workflow nodes
+│   └── hitl_routing.py          # Test compatibility stub
 ├── models/                       # Data models and schemas
 │   ├── schemas.py               # Pydantic models (HO3Submission, etc.)
 │   └── database.py              # Database models
 ├── storage/                      # Database operations
 │   └── database.py              # SQLite database layer
-├── tools/                        # External API integrations
-│   ├── mock_providers.py        # Mock provider implementations
-│   └── provider_gateway.py      # Provider abstraction layer
-├── providers/                    # Real provider implementations
-│   ├── property_data_provider.py
-│   ├── hazard_data_provider.py
-│   └── claims_data_provider.py
-├── agents/                       # Phase A agent implementations
-│   ├── collaboration.py          # Agent communication
-│   └── workflows.py              # Agent workflow management
-├── static/                       # Frontend assets
-│   ├── index.html               # Main web interface
-│   ├── css/                     # Stylesheets
-│   └── js/                      # JavaScript
-├── tests/                        # Production test suite
-│   ├── run_production_tests.py   # Main test runner
-│   ├── test_llm_safety.py        # LLM safety & fallback tests
-│   ├── test_rag_citations.py     # RAG citation guardrails
-│   ├── test_api_integration.py    # API endpoint tests
-│   ├── test_failure_modes.py     # Failure resilience tests
-│   ├── test_unit_agents.py       # Individual agent tests
-│   ├── test_load_performance.py  # Load & performance tests
-│   └── demo_scenarios.py        # Legacy test scenarios
-├── k8s/                          # Kubernetes configurations
-├── docs/                         # Documentation
-├── config.py                     # Configuration management
+├── tools.py                      # Tool implementations (rating, address, hazard)
+├── observability.py              # Simple observability and tracing
+├── docs/                         # Documentation (moved from root)
+├── tests/                        # Test suite (consolidated)
+│   ├── e2e/                      # End-to-end tests
+│   └── test_*.py                 # Unit and integration tests
+├── frontend/                     # React frontend application
+│   ├── src/                      # Source code
+│   ├── package.json              # Dependencies
+│   └── next.config.js            # Next.js configuration
+├── infrastructure/               # Deployment configurations
+│   ├── docker-compose.yml        # Local development
+│   ├── Dockerfile                # Container build
+│   ├── k8s/                      # Kubernetes manifests
+│   └── terraform/                # Infrastructure as code
+├── config.py                     # Configuration settings
+├── logging_config.py             # Logging configuration
 ├── requirements.txt              # Python dependencies
-├── TEST_RESULTS_V2.md            # Production test results & evidence
 └── README.md                     # This file
 ```
 
 ---
 
-## 🔧 Operational Model
+##  Operational Model
 
 ### Logging Strategy
 
@@ -667,7 +678,7 @@ grep "ERROR" logs/underwriting.log | wc -l
 - **Trace ID**: Unique per request flow
 - **Span Types**: API, Agent, LLM, Database, External API
 - **Propagation**: Headers across all service calls
-- **Sampling**: 100% for production debugging
+- **Sampling**: 100% for debugging
 
 #### **Key Spans**
 1. **API Request Span**: Entry point to response
@@ -745,18 +756,16 @@ grep "LLM" logs/underwriting_$(date +%Y%m%d).log | tail -20
 # Check circuit breaker status
 curl "http://localhost:8000/health" | jq '.circuit_breaker'
 
-# Run production tests
+# Run test suite
 cd tests && python run_production_tests.py
 ```
 
-### 🧪 Production Testing
+### Test Suite
 
-**Comprehensive test suite with verified production evidence:**
+Test suite covering key operational areas:
 
 - **LLM Safety**: Advisory-only system with deterministic fallbacks
-- **Performance**: Sub-millisecond response times verified
-- **Failure Resilience**: Circuit breaker and graceful degradation tested
-- **API Integration**: Real endpoint validation
-- **Load Testing**: Scalability under concurrent load
-
-**📊 See detailed results**: [**TEST_RESULTS_V2.md**](TEST_RESULTS_V2.md)
+- **Response Time**: Basic timing validation
+- **Failure Resilience**: Circuit breaker and graceful degradation
+- **API Integration**: Endpoint validation
+- **Load Testing**: Basic concurrent testing

@@ -4,8 +4,14 @@ Test configuration and fixtures for unit tests.
 This module provides common test data and configuration.
 """
 
+import sys
+import os
 import pytest
 from datetime import datetime, timedelta
+
+# Add project root to Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from models.schemas import (
     QuoteSubmission,
     NormalizedAddress,

@@ -59,7 +59,7 @@ def run_test_file(test_file: str) -> Dict[str, Any]:
 
 def main():
     """Run all tests and provide comprehensive report"""
-    print("🚀 Complete Test Runner")
+    print(" Complete Test Runner")
     print("=" * 60)
     
     # Define all test files
@@ -82,7 +82,7 @@ def main():
             results.append(result)
             
             # Print immediate result
-            status_icon = "✅" if result["status"] == "PASS" else "❌"
+            status_icon = "" if result["status"] == "PASS" else ""
             print(f"   {status_icon} {test_file}: {result['status']} ({result['duration_ms']:.1f}ms)")
             
             # Print key errors for failed tests
@@ -92,11 +92,11 @@ def main():
                     if line.strip():
                         print(f"      Error: {line.strip()}")
         else:
-            print(f"   ⚠️  {test_file}: NOT FOUND")
+            print(f"     {test_file}: NOT FOUND")
     
     # Summary
     print("\n" + "=" * 60)
-    print("📊 COMPREHENSIVE TEST RESULTS")
+    print(" COMPREHENSIVE TEST RESULTS")
     print("=" * 60)
     
     passed = sum(1 for r in results if r["status"] == "PASS")
@@ -119,25 +119,25 @@ def main():
                 "error": result["stderr"].split('\n')[0] if result["stderr"] else "Unknown error"
             })
     
-    print(f"\n📈 Test Summary:")
+    print(f"\n Test Summary:")
     print(f"   Total: {total}")
-    print(f"   ✅ Passed: {passed}")
-    print(f"   ❌ Failed: {failed}")
+    print(f"    Passed: {passed}")
+    print(f"    Failed: {failed}")
     print(f"   ⏱️ Timeout: {timeout}")
     print(f"   💥 Error: {error}")
-    print(f"   📊 Success Rate: {(passed/total*100):.1f}%" if total > 0 else "   📊 Success Rate: 0%")
+    print(f"    Success Rate: {(passed/total*100):.1f}%" if total > 0 else "    Success Rate: 0%")
     
-    print(f"\n✅ Working Tests:")
+    print(f"\n Working Tests:")
     for test in working_tests:
         print(f"   - {test}")
     
     if failing_tests:
-        print(f"\n❌ Failing Tests:")
+        print(f"\n Failing Tests:")
         for test in failing_tests:
             print(f"   - {test['file']}: {test['status']} ({test['error']})")
     
     # System status assessment
-    print(f"\n🎯 System Status Assessment:")
+    print(f"\n System Status Assessment:")
     
     if passed >= 6:
         print("   🟢 STRONG: Most tests passing, system largely functional")
@@ -147,30 +147,30 @@ def main():
         print("   🔴 WEAK: Few tests passing, system needs significant work")
     
     # Specific functionality assessment
-    print(f"\n🔧 Functionality Status:")
+    print(f"\n Functionality Status:")
     
     production_tests_passed = any("run_production_tests.py" in t for t in working_tests)
     api_tests_passed = any("test_end_to_end_api.py" in t for t in working_tests)
     llm_tests_passed = any("test_llm_safety.py" in t for t in working_tests)
     
-    print(f"   🏭 Production Tests: {'✅ WORKING' if production_tests_passed else '❌ FAILING'}")
-    print(f"   🌐 API Endpoints: {'✅ WORKING' if api_tests_passed else '❌ FAILING'}")
-    print(f"   🤖 LLM Safety: {'✅ WORKING' if llm_tests_passed else '❌ FAILING'}")
+    print(f"   🏭 Production Tests: {' WORKING' if production_tests_passed else ' FAILING'}")
+    print(f"    API Endpoints: {' WORKING' if api_tests_passed else ' FAILING'}")
+    print(f"   🤖 LLM Safety: {' WORKING' if llm_tests_passed else ' FAILING'}")
     
     # Recommendations
-    print(f"\n💡 Recommendations:")
+    print(f"\n Recommendations:")
     
     if failed > 0:
-        print(f"   🔧 Fix {failed} failing test(s) to improve system reliability")
+        print(f"    Fix {failed} failing test(s) to improve system reliability")
     
     if "test_unit_agents.py" in [t["file"] for t in failing_tests]:
-        print(f"   📦 Fix import issues in unit tests")
+        print(f"    Fix import issues in unit tests")
     
     if "test_rag_citations.py" in [t["file"] for t in failing_tests]:
-        print(f"   🔗 Fix module import paths in RAG tests")
+        print(f"    Fix module import paths in RAG tests")
     
     if production_tests_passed and api_tests_passed:
-        print(f"   ✅ Core functionality working - focus on remaining test issues")
+        print(f"    Core functionality working - focus on remaining test issues")
     
     return results
 

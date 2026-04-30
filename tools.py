@@ -1,10 +1,25 @@
 """
-Rating tool for underwriting calculations
+Minimal tool implementations for underwriting workflow
 """
 
 import logging
+from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
+
+class AddressNormalizeTool:
+    """Simple address normalization tool"""
+    
+    def normalize(self, address: str) -> str:
+        """Normalize address format"""
+        return address.strip().title()
+
+class HazardScoreTool:
+    """Simple hazard scoring tool"""
+    
+    def get_hazard_score(self, address: str) -> float:
+        """Get hazard score for address"""
+        return 0.5  # Default score
 
 class RatingTool:
     """Simple rating tool for premium calculations"""

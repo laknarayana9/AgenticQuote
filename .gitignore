@@ -66,6 +66,17 @@ storage/chroma_db/
 storage/underwriting.db
 storage/underwriting.db-journal
 
+# Runtime data and logs
+logs/
+*.log
+tests/logs/
+tests/storage/
+
+# Cache directories
+storage/cache/
+vector_db/
+knowledge_base/
+
 # Flask stuff:
 instance/
 .webassets-cache
@@ -145,3 +156,28 @@ dmypy.json
 .DS_Store
 Thumbs.db
 .claude/
+
+# Test artifacts
+playwright-report/
+test-results/
+__pycache__/
+.pytest_cache/
+node_modules/
+
+# Lock files (should be generated fresh)
+package-lock.json
+yarn.lock
+Pipfile.lock
+
+# Frontend build artifacts
+.next/
+out/
+build/
+dist/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover

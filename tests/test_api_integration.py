@@ -41,7 +41,7 @@ class TestAPIIntegration:
         assert "timestamp" in health_data
         assert health_data["status"] in ["healthy", "mock_mode", "degraded"]
         
-        print(f"✅ Health endpoint: {health_data['status']} - PASS")
+        print(f" Health endpoint: {health_data['status']} - PASS")
     
     def test_quote_ho3_low_risk_accept(self):
         """Test: Complete low-risk quote → ACCEPT"""
@@ -86,7 +86,7 @@ class TestAPIIntegration:
         assert "confidence" in decision
         assert decision["confidence"] >= 0.0
         
-        print(f"✅ Low-risk quote: {decision['decision']} - PASS")
+        print(f" Low-risk quote: {decision['decision']} - PASS")
     
     def test_quote_ho3_high_risk_refer(self):
         """Test: High-risk wildfire quote → REFER"""
@@ -129,7 +129,7 @@ class TestAPIIntegration:
             assert "referral_triggers" in result
             assert len(result["referral_triggers"]) > 0
         
-        print(f"✅ High-risk quote: {decision['decision']} - PASS")
+        print(f" High-risk quote: {decision['decision']} - PASS")
     
     def test_quote_ho3_ineligible_decline(self):
         """Test: Ineligible property → DECLINE"""
@@ -168,7 +168,7 @@ class TestAPIIntegration:
         assert "reasoning" in decision
         assert "ineligible" in decision["reasoning"].lower() or "commercial" in decision["reasoning"].lower()
         
-        print(f"✅ Ineligible quote: {decision['decision']} - PASS")
+        print(f" Ineligible quote: {decision['decision']} - PASS")
     
     def test_quote_ho3_missing_info_hitl(self):
         """Test: Missing roof/foundation info → HITL required"""
@@ -208,7 +208,7 @@ class TestAPIIntegration:
         if "required_questions" in result:
             assert len(result["required_questions"]) > 0
         
-        print(f"✅ Missing info → HITL required: PASS")
+        print(f" Missing info → HITL required: PASS")
     
     def test_quote_ho3_invalid_schema(self):
         """Test: Invalid schema → 400 error"""
@@ -234,7 +234,7 @@ class TestAPIIntegration:
         # Should return 422 for validation error
         assert response.status_code == 422
         
-        print(f"✅ Invalid schema → 422 error: PASS")
+        print(f" Invalid schema → 422 error: PASS")
     
     def test_quote_run_legacy_endpoint(self):
         """Test: POST /quote/run legacy endpoint"""
@@ -261,7 +261,7 @@ class TestAPIIntegration:
         assert "status" in result
         assert "decision" in result
         
-        print(f"✅ Legacy endpoint: {result['status']} - PASS")
+        print(f" Legacy endpoint: {result['status']} - PASS")
     
     def test_get_run_by_id(self):
         """Test: GET /runs/{run_id} endpoint"""
@@ -304,7 +304,7 @@ class TestAPIIntegration:
         assert "decision" in run_data
         assert "created_at" in run_data
         
-        print(f"✅ GET run by ID: {run_data['status']} - PASS")
+        print(f" GET run by ID: {run_data['status']} - PASS")
     
     def test_quotes_continue_hitl(self):
         """Test: POST /quotes/{run_id}/continue for HITL"""
@@ -353,7 +353,7 @@ class TestAPIIntegration:
         assert "status" in resume_result
         assert "decision" in resume_result
         
-        print(f"✅ HITL resume: {resume_result['status']} - PASS")
+        print(f" HITL resume: {resume_result['status']} - PASS")
     
     def test_api_performance_timing(self):
         """Test: Measure API response times"""
@@ -388,7 +388,7 @@ class TestAPIIntegration:
         
         assert response.status_code == 200
         
-        print(f"✅ API response time: {response_time_ms:.2f}ms - PASS")
+        print(f" API response time: {response_time_ms:.2f}ms - PASS")
         
         # Should be under 1 second for local testing
         assert response_time_ms < 1000, f"Response time {response_time_ms:.2f}ms exceeds 1000ms"
@@ -465,7 +465,7 @@ class TestAPIIntegration:
             
             print(f"    Result: {decision}")
         
-        print("✅ Comprehensive API scenarios: PASS")
+        print(" Comprehensive API scenarios: PASS")
 
 
 if __name__ == "__main__":
@@ -497,12 +497,12 @@ if __name__ == "__main__":
         test_suite.test_comprehensive_api_scenarios()
         
         print("\n" + "="*60)
-        print("✅ ALL API INTEGRATION TESTS PASSED")
-        print("🔗 Real endpoints working correctly")
-        print("📋 Complete quote lifecycle verified")
-        print("🚨 HITL workflows functional")
-        print("⚡ Performance within acceptable limits")
+        print(" ALL API INTEGRATION TESTS PASSED")
+        print(" Real endpoints working correctly")
+        print(" Complete quote lifecycle verified")
+        print(" HITL workflows functional")
+        print(" Performance within acceptable limits")
         
     except Exception as e:
-        print(f"\n❌ TEST FAILED: {e}")
+        print(f"\n TEST FAILED: {e}")
         raise

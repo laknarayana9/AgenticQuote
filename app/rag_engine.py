@@ -127,8 +127,8 @@ class RAGEngine:
         Returns:
             Summary of ingestion results
         """
-        print("📚 Starting document ingestion...")
-        logger.info("📚 Starting document ingestion...")
+        print(" Starting document ingestion...")
+        logger.info(" Starting document ingestion...")
         
         # Clear existing data if forced
         if force_reingest:
@@ -147,8 +147,8 @@ class RAGEngine:
         
         # Process all markdown files
         md_files = list(self.data_dir.glob("*.md"))
-        print(f"📄 Found {len(md_files)} markdown files")
-        logger.info(f"📄 Found {len(md_files)} markdown files to process")
+        print(f" Found {len(md_files)} markdown files")
+        logger.info(f" Found {len(md_files)} markdown files to process")
         
         total_chunks = 0
         
@@ -158,11 +158,11 @@ class RAGEngine:
                 if chunks:
                     self.chunks.extend(chunks)
                     total_chunks += len(chunks)
-                    print(f"✅ {file_path.name}: {len(chunks)} chunks")
-                    logger.info(f"✅ Processed {file_path.name}: {len(chunks)} chunks")
+                    print(f" {file_path.name}: {len(chunks)} chunks")
+                    logger.info(f" Processed {file_path.name}: {len(chunks)} chunks")
             except Exception as e:
-                print(f"❌ Error processing {file_path.name}: {e}")
-                logger.error(f"❌ Error processing {file_path.name}: {e}")
+                print(f" Error processing {file_path.name}: {e}")
+                logger.error(f" Error processing {file_path.name}: {e}")
         
         # Store in ChromaDB
         if self.chunks:
@@ -177,7 +177,7 @@ class RAGEngine:
             "ingestion_timestamp": datetime.now().isoformat()
         }
         
-        print(f"🎉 Ingestion complete: {summary}")
+        print(f" Ingestion complete: {summary}")
         return summary
     
     def _process_document(self, file_path: Path) -> List[RetrievalChunk]:
@@ -407,8 +407,8 @@ class RAGEngine:
             return "informational"
     
     def _store_chunks(self):
-        print(f"📦 Storing {len(self.chunks)} chunks in ChromaDB...")
-        logger.info(f"📦 Storing {len(self.chunks)} chunks in ChromaDB")
+        print(f" Storing {len(self.chunks)} chunks in ChromaDB...")
+        logger.info(f" Storing {len(self.chunks)} chunks in ChromaDB")
         
         # Prepare documents and embeddings
         documents = [chunk.text for chunk in self.chunks]
@@ -422,7 +422,7 @@ class RAGEngine:
             embeddings = self.embedding_model.encode(documents).tolist()
         else:
             # Mock embeddings for testing
-            logger.warning("⚠️ Using mock embeddings for testing")
+            logger.warning(" Using mock embeddings for testing")
             embeddings = [np.random.random(self.embedding_dim).tolist() for _ in documents]
         
         # Store in batches
@@ -440,8 +440,8 @@ class RAGEngine:
                 ids=batch_ids
             )
         
-        print(f"✅ Successfully stored {len(documents)} chunks")
-        logger.info(f"✅ Successfully stored {len(documents)} chunks in ChromaDB")
+        print(f" Successfully stored {len(documents)} chunks")
+        logger.info(f" Successfully stored {len(documents)} chunks in ChromaDB")
     
     def retrieve(self, query: str, n_results: int = 5, 
                  filters: Optional[Dict[str, Any]] = None) -> List[RetrievalChunk]:
@@ -524,7 +524,7 @@ class RAGEngine:
             return chunks
             
         except Exception as e:
-            print(f"❌ Error retrieving chunks: {e}")
+            print(f" Error retrieving chunks: {e}")
             return []
     
     def get_document_summary(self) -> Dict[str, Any]:

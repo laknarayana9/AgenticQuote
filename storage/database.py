@@ -31,7 +31,7 @@ class UnderwritingDB:
         """
         Initialize the database schema.
         """
-        logger.info("🔧 Initializing database schema")
+        logger.info(" Initializing database schema")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS run_records (
@@ -197,7 +197,7 @@ class UnderwritingDB:
                 CREATE INDEX IF NOT EXISTS idx_hitl_status ON hitl_tasks(status)
             """)
             
-            logger.info("✅ Database schema initialized successfully")
+            logger.info(" Database schema initialized successfully")
     
     def save_run_record(self, record: RunRecord) -> str:
         """

@@ -109,7 +109,7 @@ class LoadTestRunner:
     
     def run_load_test(self, concurrent_users: int, total_requests: int, variant: str = "normal") -> Dict[str, Any]:
         """Run load test with specified parameters"""
-        print(f"\n🚀 Load Test: {concurrent_users} concurrent users, {total_requests} total requests")
+        print(f"\n Load Test: {concurrent_users} concurrent users, {total_requests} total requests")
         print(f"   Variant: {variant}")
         
         start_time = time.time()
@@ -246,7 +246,7 @@ class LoadTestRunner:
     
     def run_comprehensive_load_tests(self) -> Dict[str, Any]:
         """Run comprehensive load test suite"""
-        print("🚀 Starting Comprehensive Load Test Suite")
+        print(" Starting Comprehensive Load Test Suite")
         print("=" * 60)
         
         test_scenarios = [
@@ -262,7 +262,7 @@ class LoadTestRunner:
         
         for scenario in test_scenarios:
             scenario_name = f"{scenario['users']}users_{scenario['requests']}req_{scenario['variant']}"
-            print(f"\n📊 Running: {scenario_name}")
+            print(f"\n Running: {scenario_name}")
             
             result = self.run_load_test(
                 scenario["users"],
@@ -274,10 +274,10 @@ class LoadTestRunner:
             
             # Print summary
             perf = result["performance"]
-            print(f"   ✅ RPS: {perf['requests_per_second']:.1f}")
-            print(f"   ✅ Success Rate: {perf['success_rate']*100:.1f}%")
-            print(f"   ✅ p95: {perf['p95_ms']:.1f}ms")
-            print(f"   ✅ p99: {perf['p99_ms']:.1f}ms")
+            print(f"    RPS: {perf['requests_per_second']:.1f}")
+            print(f"    Success Rate: {perf['success_rate']*100:.1f}%")
+            print(f"    p95: {perf['p95_ms']:.1f}ms")
+            print(f"    p99: {perf['p99_ms']:.1f}ms")
         
         return all_results
 
@@ -290,14 +290,14 @@ def main():
         results = runner.run_comprehensive_load_tests()
         
         print("\n" + "=" * 60)
-        print("📊 LOAD TEST RESULTS SUMMARY")
+        print(" LOAD TEST RESULTS SUMMARY")
         print("=" * 60)
         
         for scenario_name, result in results.items():
             perf = result["performance"]
             config = result["test_config"]
             
-            print(f"\n🎯 {scenario_name.replace('_', ' ').title()}")
+            print(f"\n {scenario_name.replace('_', ' ').title()}")
             print(f"   Users: {config['concurrent_users']}, Requests: {config['total_requests']}")
             print(f"   RPS: {perf['requests_per_second']:.1f}")
             print(f"   Success Rate: {perf['success_rate']*100:.1f}%")
@@ -312,7 +312,7 @@ def main():
                     print(f"   Avg Confidence: {decisions['avg_confidence']:.2f}")
         
         # Performance targets check
-        print(f"\n🎯 Performance Targets Analysis:")
+        print(f"\n Performance Targets Analysis:")
         print(f"   Target p95: 200ms")
         print(f"   Target RPS: 1000+")
         print(f"   Target Success Rate: 99%+")
@@ -324,13 +324,13 @@ def main():
                 rps_ok = perf["requests_per_second"] >= 100
                 success_ok = perf["success_rate"] >= 0.99
                 
-                status = "✅" if (p95_ok and rps_ok and success_ok) else "⚠️"
+                status = "" if (p95_ok and rps_ok and success_ok) else ""
                 print(f"   {scenario_name}: {status}")
         
         return results
         
     except Exception as e:
-        print(f"\n❌ Load test failed: {e}")
+        print(f"\n Load test failed: {e}")
         raise
 
 

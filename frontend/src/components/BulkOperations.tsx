@@ -77,27 +77,27 @@ export function BulkOperations() {
           </div>
 
           <div className="space-y-2">
-            {cases.map((case) => (
+            {cases.map((caseItem) => (
               <div
-                key={case.id}
+                key={caseItem.id}
                 className="flex items-center justify-between p-3 rounded-lg border bg-white dark:bg-slate-800"
               >
                 <div className="flex items-center gap-3">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => toggleSelectCase(case.id)}
+                    onClick={() => toggleSelectCase(caseItem.id)}
                   >
-                    {case.selected ? (
+                    {caseItem.selected ? (
                       <CheckSquare className="h-4 w-4" />
                     ) : (
                       <Square className="h-4 w-4" />
                     )}
                   </Button>
                   <div>
-                    <p className="font-medium">Case #{case.caseId}</p>
+                    <p className="font-medium">Case #{caseItem.caseId}</p>
                     <p className="text-xs text-slate-600 dark:text-slate-400">
-                      Status: {case.status} | Risk: {case.riskLevel}
+                      Status: {caseItem.status} | Risk: {caseItem.riskLevel}
                     </p>
                   </div>
                 </div>

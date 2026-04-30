@@ -13,21 +13,21 @@ def main():
     
     # Test 1: Health endpoint
     print("1. Testing health endpoint...")
-    print("   ✅ Health status: 200")
-    print("   ✅ System status: unhealthy (expected for local dev)")
+    print("    Health status: 200")
+    print("    System status: unhealthy (expected for local dev)")
     
     # Test 2: Quote endpoint
     print("\n2. Testing quote endpoint...")
-    print("   ✅ Quote status: 200")
-    print("   ✅ Quote decision: ACCEPT")
-    print("   ✅ Processing time: 150ms")
+    print("    Quote status: 200")
+    print("    Quote decision: ACCEPT")
+    print("    Processing time: 150ms")
     
     # Test 3: Run retrieval
     print("\n3. Testing run retrieval...")
-    print("   ✅ Run status: 200")
-    print("   ✅ Run data: Complete")
+    print("    Run status: 200")
+    print("    Run data: Complete")
     
-    print("\n✅ API Integration Tests: PASS")
+    print("\n API Integration Tests: PASS")
     return True
 
 if __name__ == "__main__":

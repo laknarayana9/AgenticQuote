@@ -6,8 +6,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.schemas import QuoteSubmission
-from workflows.graph import run_underwriting_workflow
-from workflows.agentic_graph import run_agentic_underwriting_workflow
+from workflows.agent_workflow import run_agent_workflow
 
 
 def test_legacy_endpoint():
@@ -28,26 +27,19 @@ def test_legacy_endpoint():
     )
     
     try:
-        # Test legacy workflow
-        print("\n1. Testing legacy workflow (run_underwriting_workflow)...")
-        workflow_state = run_underwriting_workflow(submission.dict())
-        print(f"✅ Legacy workflow completed")
+        # Test 7-agent workflow
+        print("\n1. Testing 7-agent workflow (run_agent_workflow)...")
+        workflow_state = run_agent_workflow(submission.dict())
+        print(f" 7-agent workflow completed")
         print(f"   Status: {workflow_state.status}")
         print(f"   Has decision: {workflow_state.decision is not None}")
         
-        # Test agentic workflow
-        print("\n2. Testing agentic workflow (run_agentic_underwriting_workflow)...")
-        workflow_state = run_agentic_underwriting_workflow(submission.dict(), None)
-        print(f"✅ Agentic workflow completed")
-        print(f"   Status: {workflow_state.status}")
-        print(f"   Has decision: {workflow_state.decision is not None}")
-        
-        print("\n✅ BACKWARD COMPATIBILITY VERIFIED")
-        print("   Legacy workflows still function correctly")
+        print("\n 7-AGENT SYSTEM VERIFIED")
+        print("   7-agent workflow functions correctly")
         return True
         
     except Exception as e:
-        print(f"\n❌ BACKWARD COMPATIBILITY FAILED")
+        print(f"\n BACKWARD COMPATIBILITY FAILED")
         print(f"   Error: {str(e)}")
         import traceback
         traceback.print_exc()

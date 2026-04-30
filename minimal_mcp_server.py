@@ -111,18 +111,18 @@ async def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    print("🚀 Starting Minimal Agentic Underwriting MCP Server...")
-    print("📡 Exposing tools:")
+    print(" Starting Minimal Agentic Underwriting MCP Server...")
+    print(" Exposing tools:")
     for tool in TOOLS:
         print(f"  - {tool.name}")
-    print("📚 Available Resources:")
+    print(" Available Resources:")
     print("  - underwriting://guidelines")
-    print("🔗 Server will be available at stdio transport")
-    print("🎯 Ready to serve underwriting tools to AI assistants!")
+    print(" Server will be available at stdio transport")
+    print(" Ready to serve underwriting tools to AI assistants!")
     
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n👋 Server stopped by user")
     except Exception as e:
-        print(f"\n❌ Server error: {e}")
+        print(f"\n Server error: {e}")

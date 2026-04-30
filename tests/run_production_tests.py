@@ -41,9 +41,9 @@ def test_llm_safety_demonstration():
         
         response = engine.generate_decision(request)
         
-        print(f"   ✅ Timeout → Fallback: {response.decision}")
-        print(f"   ✅ Fallback confidence: {response.confidence}")
-        print(f"   ✅ Fallback reasoning: {response.reasoning}")
+        print(f"    Timeout → Fallback: {response.decision}")
+        print(f"    Fallback confidence: {response.confidence}")
+        print(f"    Fallback reasoning: {response.reasoning}")
     
     # Test 2: Low confidence fallback
     print("\n2. Testing low confidence fallback...")
@@ -65,9 +65,9 @@ def test_llm_safety_demonstration():
         
         response = engine.generate_decision(request)
         
-        print(f"   ✅ Low confidence → Deterministic: {response.decision}")
-        print(f"   ✅ Deterministic confidence: {response.confidence}")
-        print(f"   ✅ Deterministic reasoning: {response.reasoning}")
+        print(f"    Low confidence → Deterministic: {response.decision}")
+        print(f"    Deterministic confidence: {response.confidence}")
+        print(f"    Deterministic reasoning: {response.reasoning}")
     
     # Test 3: Circuit breaker
     print("\n3. Testing circuit breaker...")
@@ -91,20 +91,20 @@ def test_llm_safety_demonstration():
     # Should be open now
     try:
         circuit_breaker.call(failing_function)
-        print("   ❌ Circuit breaker should be open")
+        print("    Circuit breaker should be open")
     except Exception as e:
-        print(f"   ✅ Circuit breaker open: {type(e).__name__}")
+        print(f"    Circuit breaker open: {type(e).__name__}")
     
     state = circuit_breaker.get_state()
-    print(f"   ✅ Circuit state: {state['state']}")
-    print(f"   ✅ Failure count: {state['failure_count']}")
+    print(f"    Circuit state: {state['state']}")
+    print(f"    Failure count: {state['failure_count']}")
     
     return True
 
 
 def test_api_endpoints_demonstration():
     """Demonstrate API endpoint testing"""
-    print("\n🌐 Testing API Endpoints")
+    print("\n Testing API Endpoints")
     print("=" * 50)
     
     try:
@@ -117,10 +117,10 @@ def test_api_endpoints_demonstration():
         print("\n1. Testing health endpoint...")
         response = client.get("/health")
         
-        print(f"   ✅ Health status: {response.status_code}")
+        print(f"    Health status: {response.status_code}")
         if response.status_code == 200:
             health_data = response.json()
-            print(f"   ✅ System status: {health_data.get('status', 'unknown')}")
+            print(f"    System status: {health_data.get('status', 'unknown')}")
         
         # Test quote endpoint with valid data
         print("\n2. Testing quote endpoint...")
@@ -146,23 +146,23 @@ def test_api_endpoints_demonstration():
         
         response = client.post("/quote/ho3", json=submission)
         
-        print(f"   ✅ Quote status: {response.status_code}")
+        print(f"    Quote status: {response.status_code}")
         if response.status_code == 200:
             result = response.json()
             decision = result.get("decision", {}).get("decision", "UNKNOWN")
-            print(f"   ✅ Quote decision: {decision}")
-            print(f"   ✅ Processing time: {result.get('processing_time_ms', 0)}ms")
+            print(f"    Quote decision: {decision}")
+            print(f"    Processing time: {result.get('processing_time_ms', 0)}ms")
         
         return True
         
     except Exception as e:
-        print(f"   ⚠️  API testing issue: {e}")
+        print(f"     API testing issue: {e}")
         return False
 
 
 def test_performance_demonstration():
     """Demonstrate performance testing"""
-    print("\n⚡ Testing Performance")
+    print("\n Testing Performance")
     print("=" * 50)
     
     try:
@@ -205,21 +205,21 @@ def test_performance_demonstration():
         min_time = min(response_times)
         max_time = max(response_times)
         
-        print(f"   ✅ Average: {avg_time:.2f}ms")
-        print(f"   ✅ Min: {min_time:.2f}ms")
-        print(f"   ✅ Max: {max_time:.2f}ms")
-        print(f"   ✅ P95: {sorted(response_times)[8]:.2f}ms")
+        print(f"    Average: {avg_time:.2f}ms")
+        print(f"    Min: {min_time:.2f}ms")
+        print(f"    Max: {max_time:.2f}ms")
+        print(f"    P95: {sorted(response_times)[8]:.2f}ms")
         
         return True
         
     except Exception as e:
-        print(f"   ⚠️  Performance testing issue: {e}")
+        print(f"     Performance testing issue: {e}")
         return False
 
 
 def main():
     """Run all demonstration tests"""
-    print("🚀 Production Evidence Testing")
+    print(" Production Evidence Testing")
     print("=" * 60)
     
     results = []
@@ -231,11 +231,11 @@ def main():
     
     # Summary
     print("\n" + "=" * 60)
-    print("📊 TEST RESULTS SUMMARY")
+    print(" TEST RESULTS SUMMARY")
     print("=" * 60)
     
     for test_name, success in results:
-        status = "✅ PASS" if success else "❌ FAIL"
+        status = " PASS" if success else " FAIL"
         print(f"{test_name:20} {status}")
     
     passed = sum(1 for _, success in results if success)
@@ -244,9 +244,9 @@ def main():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All tests passed - Production evidence collected!")
+        print(" All tests passed - Production evidence collected!")
     else:
-        print("⚠️  Some tests failed - review results")
+        print("  Some tests failed - review results")
     
     return results
 

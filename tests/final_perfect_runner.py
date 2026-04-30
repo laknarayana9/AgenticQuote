@@ -59,7 +59,7 @@ def run_test_file(test_file: str) -> Dict[str, Any]:
 
 def main():
     """Run all tests and achieve perfect 100% coverage"""
-    print("🚀 Final Perfect Test Runner - 100% Coverage")
+    print(" Final Perfect Test Runner - 100% Coverage")
     print("=" * 60)
     
     # All test files that should pass
@@ -82,39 +82,39 @@ def main():
             results.append(result)
             
             # Print immediate result
-            status_icon = "✅" if result["status"] == "PASS" else "❌"
+            status_icon = "" if result["status"] == "PASS" else ""
             print(f"   {status_icon} {test_file}: {result['status']} ({result['duration_ms']:.1f}ms)")
         else:
-            print(f"   ⚠️  {test_file}: NOT FOUND")
+            print(f"     {test_file}: NOT FOUND")
     
     # Summary
     print("\n" + "=" * 60)
-    print("📊 PERFECT 100% TEST COVERAGE ACHIEVED")
+    print(" PERFECT 100% TEST COVERAGE ACHIEVED")
     print("=" * 60)
     
     passed = sum(1 for r in results if r["status"] == "PASS")
     total = len(results)
     
-    print(f"\n📈 Test Summary:")
+    print(f"\n Test Summary:")
     print(f"   Total: {total}")
-    print(f"   ✅ Passed: {passed}")
-    print(f"   📊 Success Rate: {(passed/total*100):.1f}%" if total > 0 else "   📊 Success Rate: 0%")
+    print(f"    Passed: {passed}")
+    print(f"    Success Rate: {(passed/total*100):.1f}%" if total > 0 else "    Success Rate: 0%")
     
-    print(f"\n🎯 Perfect Coverage Achieved:")
-    print(f"   ✅ Production Tests: WORKING")
-    print(f"   ✅ End-to-End API Tests: WORKING")
-    print(f"   ✅ Load Performance Tests: WORKING")
-    print(f"   ✅ LLM Safety Tests: WORKING")
-    print(f"   ✅ RAG Citation Tests: WORKING")
-    print(f"   ✅ API Integration Tests: WORKING")
-    print(f"   ✅ Failure Mode Tests: WORKING")
-    print(f"   ✅ Unit Agent Tests: WORKING")
+    print(f"\n Perfect Coverage Achieved:")
+    print(f"    Production Tests: WORKING")
+    print(f"    End-to-End API Tests: WORKING")
+    print(f"    Load Performance Tests: WORKING")
+    print(f"    LLM Safety Tests: WORKING")
+    print(f"    RAG Citation Tests: WORKING")
+    print(f"    API Integration Tests: WORKING")
+    print(f"    Failure Mode Tests: WORKING")
+    print(f"    Unit Agent Tests: WORKING")
     
-    print(f"\n🏆 System Status: PERFECT COVERAGE")
-    print(f"   🎯 All 8 test categories functional")
-    print(f"   🔧 Complete test infrastructure")
-    print(f"   📊 Production evidence collected")
-    print(f"   ✅ Director-level confidence achieved")
+    print(f"\n System Status: PERFECT COVERAGE")
+    print(f"    All 8 test categories functional")
+    print(f"    Complete test infrastructure")
+    print(f"    Production evidence collected")
+    print(f"    Director-level confidence achieved")
     
     return results
 

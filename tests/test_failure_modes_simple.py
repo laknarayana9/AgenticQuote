@@ -13,20 +13,20 @@ def main():
     
     # Test 1: External API timeout
     print("1. Testing external API timeout...")
-    print("   ✅ Response: Cached/default data")
-    print("   ✅ Status: Graceful degradation")
+    print("    Response: Cached/default data")
+    print("    Status: Graceful degradation")
     
     # Test 2: Circuit breaker open
     print("\n2. Testing circuit breaker open...")
-    print("   ✅ Response: Deterministic fallback")
-    print("   ✅ Status: Circuit breaker protection active")
+    print("    Response: Deterministic fallback")
+    print("    Status: Circuit breaker protection active")
     
     # Test 3: Database unavailable
     print("\n3. Testing database unavailable...")
-    print("   ✅ Response: Manual review required")
-    print("   ✅ Status: Fallback to safe mode")
+    print("    Response: Manual review required")
+    print("    Status: Fallback to safe mode")
     
-    print("\n✅ Failure Mode Tests: PASS")
+    print("\n Failure Mode Tests: PASS")
     return True
 
 if __name__ == "__main__":

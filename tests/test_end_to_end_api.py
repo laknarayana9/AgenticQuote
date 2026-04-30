@@ -37,7 +37,7 @@ class TestEndToEndAPI:
         assert "timestamp" in data
         assert data["status"] in ["healthy", "unhealthy", "mock_mode", "degraded"]
         
-        print(f"   ✅ Health endpoint: {data['status']}")
+        print(f"    Health endpoint: {data['status']}")
         return True
     
     def test_quote_ho3_endpoint(self):
@@ -81,7 +81,7 @@ class TestEndToEndAPI:
         assert "confidence" in decision
         assert "reasoning" in decision
         
-        print(f"   ✅ HO3 quote: {decision['decision']} (confidence: {decision['confidence']})")
+        print(f"    HO3 quote: {decision['decision']} (confidence: {decision['confidence']})")
         return True
     
     def test_quote_run_endpoint(self):
@@ -111,7 +111,7 @@ class TestEndToEndAPI:
         assert "status" in data
         assert "decision" in data
         
-        print(f"   ✅ Quote run: {data['status']}")
+        print(f"    Quote run: {data['status']}")
         return True
     
     def test_get_run_endpoint(self):
@@ -155,7 +155,7 @@ class TestEndToEndAPI:
         assert "decision" in data
         assert "created_at" in data
         
-        print(f"   ✅ Get run: {data['status']}")
+        print(f"    Get run: {data['status']}")
         return True
     
     def test_quotes_continue_endpoint(self):
@@ -204,9 +204,9 @@ class TestEndToEndAPI:
         if response.status_code == 200:
             data = response.json()
             assert data["run_id"] == run_id
-            print(f"   ✅ Resume quote: {data['status']}")
+            print(f"    Resume quote: {data['status']}")
         else:
-            print(f"   ✅ Resume quote: Graceful handling ({response.status_code})")
+            print(f"    Resume quote: Graceful handling ({response.status_code})")
         
         return True
     
@@ -222,7 +222,7 @@ class TestEndToEndAPI:
         assert "message" in data
         assert "endpoints" in data
         
-        print(f"   ✅ Root endpoint: {data['message']}")
+        print(f"    Root endpoint: {data['message']}")
         return True
     
     def test_runs_list_endpoint(self):
@@ -238,7 +238,7 @@ class TestEndToEndAPI:
         assert "total_count" in data
         assert isinstance(data["runs"], list)
         
-        print(f"   ✅ Runs list: {data['total_count']} runs")
+        print(f"    Runs list: {data['total_count']} runs")
         return True
     
     def test_metrics_endpoint(self):
@@ -250,13 +250,13 @@ class TestEndToEndAPI:
         assert response.status_code == 200
         data = response.json()
         
-        print(f"   ✅ Metrics endpoint: {data.get('status', 'unknown')}")
+        print(f"    Metrics endpoint: {data.get('status', 'unknown')}")
         return True
 
 
 def main():
     """Run comprehensive end-to-end API tests"""
-    print("🚀 End-to-End API Testing")
+    print(" End-to-End API Testing")
     print("=" * 60)
     
     test_suite = TestEndToEndAPI()
@@ -294,18 +294,18 @@ def main():
                 "error": str(e),
                 "duration_ms": 0
             })
-            print(f"   ❌ {test_name}: {e}")
+            print(f"    {test_name}: {e}")
     
     # Summary
     print("\n" + "=" * 60)
-    print("📊 END-TO-END API TEST RESULTS")
+    print(" END-TO-END API TEST RESULTS")
     print("=" * 60)
     
     passed = sum(1 for r in results if r["status"] == "PASS")
     total = len(results)
     
     for result in results:
-        status_icon = "✅" if result["status"] == "PASS" else "❌"
+        status_icon = "" if result["status"] == "PASS" else ""
         duration = f" ({result['duration_ms']:.1f}ms)" if "duration_ms" in result else ""
         print(f"{status_icon} {result['test']}: {result['status']}{duration}")
         if result.get("error"):
@@ -314,12 +314,12 @@ def main():
     print(f"\nOverall: {passed}/{total} tests passed")
     
     if passed == total:
-        print("🎉 All end-to-end API tests passed!")
-        print("✅ Full application startup works without errors")
-        print("✅ All core API endpoints functional")
-        print("✅ System works end-to-end")
+        print(" All end-to-end API tests passed!")
+        print(" Full application startup works without errors")
+        print(" All core API endpoints functional")
+        print(" System works end-to-end")
     else:
-        print("⚠️  Some tests failed - review results")
+        print("  Some tests failed - review results")
     
     return results
 

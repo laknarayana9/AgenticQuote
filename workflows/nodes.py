@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 import uuid
 import logging
-from langgraph.graph import StateGraph, END
+# from langgraph.graph import StateGraph, END  # LangGraph removed
 from models.schemas import (
     WorkflowState, QuoteSubmission, EnrichmentResult, 
     UWAssessment, Decision, DecisionType, UWTrigger, UWQuestion,
@@ -41,7 +41,7 @@ class UnderwritingNodes:
             submission = state.quote_submission
             run_id = getattr(state, 'run_id', 'unknown')
         
-        logger.info(f"[{run_id}] 🔍 Validating submission for {submission.applicant_name} at {submission.address}")
+        logger.info(f"[{run_id}]  Validating submission for {submission.applicant_name} at {submission.address}")
         
         missing_info = []
         
@@ -95,7 +95,7 @@ class UnderwritingNodes:
             state.current_node = "validate"
             state.tool_calls.append(tool_call)
         
-        validation_status = "✅ PASSED" if len(missing_info) == 0 else f"❌ FAILED ({len(missing_info)} missing fields)"
+        validation_status = " PASSED" if len(missing_info) == 0 else f" FAILED ({len(missing_info)} missing fields)"
         logger.info(f"[{run_id}] Validation {validation_status}: {missing_info}")
         
         return state
@@ -107,12 +107,12 @@ class UnderwritingNodes:
         submission = state.quote_submission
         run_id = getattr(state, 'run_id', 'unknown')
         
-        logger.info(f"[{run_id}] 🏢 Enriching data for {submission.address}")
+        logger.info(f"[{run_id}]  Enriching data for {submission.address}")
         
         # Normalize address
         address_result = self.address_tool(submission)
         normalized_address = address_result["normalized_address"]
-        logger.info(f"[{run_id}] 📍 Address normalized: {normalized_address.get('normalized_address', 'N/A')}")
+        logger.info(f"[{run_id}]  Address normalized: {normalized_address.get('normalized_address', 'N/A')}")
         
         # Calculate hazard scores
         from models.schemas import NormalizedAddress
@@ -120,7 +120,7 @@ class UnderwritingNodes:
         hazard_result = self.hazard_tool(addr)
         hazard_scores = hazard_result["hazard_scores"]
         
-        logger.info(f"[{run_id}] ⚠️ Hazard scores - Wildfire: {hazard_scores.get('wildfire_risk', 0):.2f}, Flood: {hazard_scores.get('flood_risk', 0):.2f}, Earthquake: {hazard_scores.get('earthquake_risk', 0):.2f}, Wind: {hazard_scores.get('wind_risk', 0):.2f}")
+        logger.info(f"[{run_id}]  Hazard scores - Wildfire: {hazard_scores.get('wildfire_risk', 0):.2f}, Flood: {hazard_scores.get('flood_risk', 0):.2f}, Earthquake: {hazard_scores.get('earthquake_risk', 0):.2f}, Wind: {hazard_scores.get('wind_risk', 0):.2f}")
         
         # Create enrichment result
         from models.schemas import HazardScores
@@ -156,7 +156,7 @@ class UnderwritingNodes:
         
         state.tool_calls.extend([address_call, hazard_call])
         
-        logger.info(f"[{run_id}] ✅ Data enrichment completed")
+        logger.info(f"[{run_id}]  Data enrichment completed")
         return state
     
     def retrieve_guidelines(self, state: WorkflowState) -> WorkflowState:
@@ -167,7 +167,7 @@ class UnderwritingNodes:
         enrichment = state.enrichment_result
         run_id = getattr(state, 'run_id', 'unknown')
         
-        logger.info(f"[{run_id}] 📚 Retrieving guidelines for {submission.property_type} property")
+        logger.info(f"[{run_id}]  Retrieving guidelines for {submission.property_type} property")
         
         # Build search query based on submission characteristics
         query_parts = []
@@ -201,11 +201,11 @@ class UnderwritingNodes:
         
         # Combine into query
         query = " ".join(query_parts)
-        logger.info(f"[{run_id}] 🔍 RAG search query: {query}")
+        logger.info(f"[{run_id}]  RAG search query: {query}")
         
         # Retrieve guidelines
         retrieved_chunks = self.rag_engine.retrieve(query, n_results=5)
-        logger.info(f"[{run_id}] 📋 Retrieved {len(retrieved_chunks)} guideline chunks")
+        logger.info(f"[{run_id}]  Retrieved {len(retrieved_chunks)} guideline chunks")
         
         state.retrieved_guidelines = retrieved_chunks
         state.current_node = "retrieve_guidelines"
@@ -265,7 +265,7 @@ class UnderwritingNodes:
                     question_type="text",
                     required=True
                 ))
-                logger.warning(f"[{run_id}] 🏗️ Old construction ({submission.construction_year}) - additional review required")
+                logger.warning(f"[{run_id}]  Old construction ({submission.construction_year}) - additional review required")
         
         # Check hazard scores
         if enrichment:

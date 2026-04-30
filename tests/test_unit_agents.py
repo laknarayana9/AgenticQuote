@@ -79,7 +79,7 @@ class TestIntakeNormalizerAgent:
         assert result["normalized_submission"]["applicant"]["full_name"] == "John Doe"
         assert result["normalized_submission"]["risk"]["property_address"] == "123 Main St, Fremont, CA 94536"
         
-        print("✅ Valid submission validation: PASS")
+        print(" Valid submission validation: PASS")
     
     def test_detects_missing_fields(self):
         """Test: IntakeNormalizerAgent detects missing fields"""
@@ -110,7 +110,7 @@ class TestIntakeNormalizerAgent:
         assert "year_built" in result["missing_fields"]
         assert "deductible" in result["missing_fields"]
         
-        print("✅ Missing field detection: PASS")
+        print(" Missing field detection: PASS")
     
     def test_normalizes_data_format(self):
         """Test: IntakeNormalizerAgent normalizes data format"""
@@ -148,7 +148,7 @@ class TestIntakeNormalizerAgent:
         assert normalized["risk"]["square_footage"] == 1800  # Converted to int
         assert normalized["coverage_request"]["coverage_amount"] == 450000  # Converted to int
         
-        print("✅ Data normalization: PASS")
+        print(" Data normalization: PASS")
 
 
 class TestRetrievalAgent:
@@ -201,7 +201,7 @@ class TestRetrievalAgent:
                 assert "relevance_score" in citation
                 assert citation["relevance_score"] > 0.8  # All should be highly relevant
         
-        print("✅ Relevant citation retrieval: PASS")
+        print(" Relevant citation retrieval: PASS")
     
     def test_filters_irrelevant_citations(self):
         """Test: RetrievalAgent filters irrelevant citations"""
@@ -244,7 +244,7 @@ class TestRetrievalAgent:
             assert not any(citation["chunk_id"] == "guideline_auto_2" for citation in citations)
             assert not any(citation["chunk_id"] == "guideline_flood_3" for citation in citations)
         
-        print("✅ Irrelevant citation filtering: PASS")
+        print(" Irrelevant citation filtering: PASS")
     
     def test_handles_no_results(self):
         """Test: RetrievalAgent handles no results"""
@@ -263,7 +263,7 @@ class TestRetrievalAgent:
             assert "message" in result
             assert "no relevant citations" in result["message"].lower()
         
-        print("✅ No results handling: PASS")
+        print(" No results handling: PASS")
 
 
 class TestUnderwritingAssessorAgent:
@@ -323,7 +323,7 @@ class TestUnderwritingAssessorAgent:
             assert len(result["referral_triggers"]) == 0
             assert len(result["conditions"]) > 0
         
-        print("✅ Accept decision production: PASS")
+        print(" Accept decision production: PASS")
     
     def test_produces_refer_decision(self):
         """Test: UnderwritingAssessorAgent produces Refer decision"""
@@ -375,7 +375,7 @@ class TestUnderwritingAssessorAgent:
             assert len(result["referral_triggers"]) == 2
             assert len(result["required_questions"]) > 0
         
-        print("✅ Refer decision production: PASS")
+        print(" Refer decision production: PASS")
     
     def test_produces_decline_decision(self):
         """Test: UnderwritingAssessorAgent produces Decline decision"""
@@ -426,7 +426,7 @@ class TestUnderwritingAssessorAgent:
             assert len(result["referral_triggers"]) == 1
             assert "commercial" in result["referral_triggers"][0].lower()
         
-        print("✅ Decline decision production: PASS")
+        print(" Decline decision production: PASS")
 
 
 class TestVerifierGuardrailAgent:
@@ -462,7 +462,7 @@ class TestVerifierGuardrailAgent:
         assert result["forced_decision"] == "REFER"
         assert result["evidence_coverage_score"] < 0.8
         
-        print("✅ Low citation blocking: PASS")
+        print(" Low citation blocking: PASS")
     
     def test_allows_sufficient_citation_decisions(self):
         """Test: VerifierGuardrailAgent allows decisions with sufficient citations"""
@@ -490,7 +490,7 @@ class TestVerifierGuardrailAgent:
         assert len(result["issues"]) == 0
         assert result["evidence_coverage_score"] >= 0.8
         
-        print("✅ Sufficient citation allowance: PASS")
+        print(" Sufficient citation allowance: PASS")
     
     def test_calculates_evidence_coverage(self):
         """Test: VerifierGuardrailAgent calculates evidence coverage"""
@@ -513,7 +513,7 @@ class TestVerifierGuardrailAgent:
         assert 0 <= result["evidence_coverage_score"] <= 1.0
         assert result["evidence_coverage_score"] == 1.0  # Perfect coverage
         
-        print(f"✅ Evidence coverage calculation: {result['evidence_coverage_score']} - PASS")
+        print(f" Evidence coverage calculation: {result['evidence_coverage_score']} - PASS")
 
 
 class TestDecisionPackagerAgent:
@@ -564,7 +564,7 @@ class TestDecisionPackagerAgent:
         assert "requires_human_review" in final_response
         assert final_response["requires_human_review"] == False
         
-        print("✅ Final response creation: PASS")
+        print(" Final response creation: PASS")
     
     def test_includes_premium_calculation(self):
         """Test: DecisionPackagerAgent includes premium calculation"""
@@ -606,7 +606,7 @@ class TestDecisionPackagerAgent:
         assert isinstance(premium["monthly_premium"], (int, float))
         assert premium["monthly_premium"] == premium["annual_premium"] / 12
         
-        print(f"✅ Premium calculation: ${premium['annual_premium']:,.2f}/year - PASS")
+        print(f" Premium calculation: ${premium['annual_premium']:,.2f}/year - PASS")
     
     def test_handles_hitl_requirements(self):
         """Test: DecisionPackagerAgent handles HITL requirements"""
@@ -643,12 +643,12 @@ class TestDecisionPackagerAgent:
         assert "required_questions" in final_response
         assert len(final_response["required_questions"]) > 0
         
-        print("✅ HITL requirements handling: PASS")
+        print(" HITL requirements handling: PASS")
 
 
 if __name__ == "__main__":
     # Run all unit tests manually
-    print("🚀 Running Agent Unit Tests")
+    print(" Running Agent Unit Tests")
     print("=" * 60)
     
     try:
@@ -698,14 +698,14 @@ if __name__ == "__main__":
         packager_tests.test_handles_hitl_requirements()
         
         print("\n" + "="*60)
-        print("✅ ALL UNIT TESTS PASSED")
+        print(" ALL UNIT TESTS PASSED")
         print("🤖 Individual agent functionality verified")
-        print("📋 Field validation working correctly")
-        print("🔍 Citation retrieval functioning properly")
+        print(" Field validation working correctly")
+        print(" Citation retrieval functioning properly")
         print("⚖️ Underwriting decisions accurate")
         print("🛡️ Guardrails enforcing requirements")
-        print("📦 Response packaging complete")
+        print(" Response packaging complete")
         
     except Exception as e:
-        print(f"\n❌ UNIT TEST FAILED: {e}")
+        print(f"\n UNIT TEST FAILED: {e}")
         raise
